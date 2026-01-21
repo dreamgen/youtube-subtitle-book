@@ -404,15 +404,7 @@ function setupSegmentButtons() {
             return;
         }
 
-        const result = await chrome.storage.local.get([`segment_${selectedKey}`]);
-        const captureData = result[`segment_${selectedKey}`];
-
-        if (!captureData) {
-            alert('找不到該段落資料');
-            return;
-        }
-
-        // 發送到 content script
+        // 發送到 content script - 使用 storage key 而非傳送資料本身（避免超過 64MB 限制）
         const tab = await getActiveYouTubeTab();
 
         if (!tab) {
@@ -420,9 +412,10 @@ function setupSegmentButtons() {
             return;
         }
 
+        // 告知 content script 從 storage 載入資料
         chrome.tabs.sendMessage(tab.id, {
-            action: 'loadCaptureData',
-            data: captureData
+            action: 'loadCaptureDataFromStorage',
+            storageKey: `segment_${selectedKey}`
         }, (response) => {
             if (chrome.runtime.lastError) {
                 alert('載入失敗: ' + chrome.runtime.lastError.message);
@@ -431,8 +424,10 @@ function setupSegmentButtons() {
 
             if (response && response.success) {
                 document.getElementById('openViewer').style.display = 'block';
-                document.getElementById('status').textContent = `已載入段落 (${captureData.pages.length}頁)`;
+                document.getElementById('status').textContent = `已載入段落 (${response.pageCount}頁)`;
                 document.getElementById('status').className = 'status show';
+            } else if (response && response.error) {
+                alert('載入失敗: ' + response.error);
             }
         });
     });

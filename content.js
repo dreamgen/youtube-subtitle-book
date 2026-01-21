@@ -29,8 +29,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     showPreview(message.config);
     sendResponse({ success: true });
   } else if (message.action === 'loadCaptureData') {
+    // 保留舊的直接載入方式（用於小型資料）
     captureData = message.data;
     sendResponse({ success: true });
+  } else if (message.action === 'loadCaptureDataFromStorage') {
+    // 從 storage 載入資料（避免超過 64MB 訊息限制）
+    chrome.storage.local.get([message.storageKey]).then(result => {
+      const data = result[message.storageKey];
+      if (data) {
+        captureData = data;
+        sendResponse({ success: true, pageCount: data.pages ? data.pages.length : 0 });
+      } else {
+        sendResponse({ success: false, error: '找不到該段落資料' });
+      }
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // 保持非同步回應
   } else if (message.action === 'keepAlive') {
     // 保持分頁活躍
     sendResponse({ alive: true });
