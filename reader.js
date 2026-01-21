@@ -11,6 +11,12 @@ let youtubeTabId = null;
 let keepAliveInterval = null;
 let isBatchMode = false;  // 批次刪除模式
 
+// 停滯偵測相關
+let lastPageCount = 0;
+let lastUpdateTime = Date.now();
+let stallCheckInterval = null;
+const STALL_TIMEOUT_MS = 30000; // 30 秒無更新視為停滯
+
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
@@ -18,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     startStorageSync();
     startKeepAlive();
+    startStallCheck();  // 新增：啟動停滯偵測
 });
 
 // 載入資料
@@ -581,4 +588,148 @@ window.addEventListener('beforeunload', () => {
     if (keepAliveInterval) {
         clearInterval(keepAliveInterval);
     }
+    if (stallCheckInterval) {
+        clearInterval(stallCheckInterval);
+    }
 });
+
+// 停滯偵測 - 檢查擷取是否卡住
+function startStallCheck() {
+    if (stallCheckInterval) {
+        clearInterval(stallCheckInterval);
+    }
+
+    stallCheckInterval = setInterval(() => {
+        if (!isCapturing) {
+            // 擷取已完成，停止檢查
+            hideForceCompleteButton();
+            return;
+        }
+
+        const now = Date.now();
+        const timeSinceUpdate = now - lastUpdateTime;
+
+        // 如果頁數有變化，更新時間
+        if (pages.length > lastPageCount) {
+            lastPageCount = pages.length;
+            lastUpdateTime = now;
+            hideForceCompleteButton();
+        } else if (timeSinceUpdate > STALL_TIMEOUT_MS && pages.length > 0) {
+            // 超過 30 秒無更新且有頁面，顯示強制完成按鈕
+            console.log(`⚠️ 偵測到擷取停滯 (${Math.floor(timeSinceUpdate / 1000)} 秒無更新)`);
+            showForceCompleteButton();
+        }
+    }, 5000); // 每 5 秒檢查一次
+}
+
+// 顯示強制完成按鈕
+function showForceCompleteButton() {
+    let btn = document.getElementById('forceComplete');
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'forceComplete';
+        btn.textContent = '⚡ 強制完成';
+        btn.style.cssText = 'background: #ff9800; padding: 12px 10px; font-size: 12px; border: none; border-radius: 5px; cursor: pointer; color: white; white-space: nowrap;';
+        btn.title = '擷取似乎已停滯，點擊強制結束並儲存';
+        btn.addEventListener('click', forceCompleteCapture);
+
+        const sideControls = document.querySelector('.side-controls');
+        if (sideControls) {
+            sideControls.appendChild(btn);
+        }
+    }
+    btn.style.display = 'block';
+
+    // 更新狀態提示
+    const statusEl = document.getElementById('captureStatus');
+    statusEl.textContent = `可能停滯 (${pages.length}頁)`;
+    statusEl.style.background = '#ff9800';
+}
+
+// 隱藏強制完成按鈕
+function hideForceCompleteButton() {
+    const btn = document.getElementById('forceComplete');
+    if (btn) {
+        btn.style.display = 'none';
+    }
+}
+
+// 強制完成擷取
+async function forceCompleteCapture() {
+    console.log('⚡ 執行強制完成擷取');
+
+    const btn = document.getElementById('forceComplete');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '處理中...';
+    }
+
+    try {
+        // 讀取當前資料
+        const result = await chrome.storage.local.get(['liveCapture']);
+        const data = result.liveCapture;
+
+        if (!data) {
+            alert('找不到擷取資料');
+            return;
+        }
+
+        // 標記為完成
+        data.isCapturing = false;
+        await chrome.storage.local.set({ liveCapture: data });
+
+        // 儲存段落
+        if (data.pages && data.pages.length > 0) {
+            const startTime = data.pages[0].startTime;
+            const endTime = data.pages[data.pages.length - 1].endTime;
+            const segmentKey = `${data.videoId || videoId}_${Math.floor(startTime)}_${Math.floor(endTime)}`;
+
+            const segResult = await chrome.storage.local.get(['savedSegments']);
+            let segments = segResult.savedSegments || [];
+            segments = segments.filter(s => s.key !== segmentKey);
+
+            segments.push({
+                key: segmentKey,
+                videoId: data.videoId || videoId,
+                videoTitle: data.videoTitle || videoTitle,
+                startTime,
+                endTime,
+                pageCount: data.pages.length,
+                screenshotCount: data.pages.reduce((sum, p) => sum + p.screenshots.length, 0),
+                createdAt: Date.now()
+            });
+
+            const captureDataToSave = {
+                videoTitle: data.videoTitle || videoTitle,
+                videoDuration: 0,
+                pages: data.pages,
+                screenshots: data.pages.flatMap(p => p.screenshots),
+                captureSettings: data.captureSettings
+            };
+
+            await chrome.storage.local.set({
+                savedSegments: segments,
+                [`segment_${segmentKey}`]: captureDataToSave,
+                captureData: captureDataToSave
+            });
+
+            console.log('✅ 段落已強制儲存:', segmentKey);
+        }
+
+        // 更新 UI
+        isCapturing = false;
+        updateStatus();
+        hideForceCompleteButton();
+        showSaveStatus();
+
+        alert(`已強制完成！共儲存 ${pages.length} 頁`);
+    } catch (error) {
+        console.error('強制完成失敗:', error);
+        alert('強制完成失敗: ' + error.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '⚡ 強制完成';
+        }
+    }
+}

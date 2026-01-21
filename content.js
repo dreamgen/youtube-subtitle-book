@@ -546,6 +546,42 @@ async function startCapture(config) {
     updateProgress(progress, `製作中... ${i + 1}/${totalCaptures} (已完成 ${captureData.pages.length} 頁)`);
   }
 
+  // 處理迴圈提前結束時的剩餘截圖
+  if (currentPageScreenshots.length > 0) {
+    console.log(`處理剩餘 ${currentPageScreenshots.length} 張截圖`);
+    const page = {
+      pageNumber: captureData.pages.length + 1,
+      startTime: currentPageScreenshots[0].time,
+      endTime: currentPageScreenshots[currentPageScreenshots.length - 1].time,
+      screenshots: [...currentPageScreenshots]
+    };
+    captureData.pages.push(page);
+
+    // 儲存到 storage
+    const existingResult = await chrome.storage.local.get(['liveCapture']);
+    const existingData = existingResult.liveCapture || {};
+    const existingPages = existingData.pages || [];
+
+    const mergedPages = [];
+    for (let p = 0; p < captureData.pages.length; p++) {
+      if (p < existingPages.length) {
+        mergedPages.push(existingPages[p]);
+      } else {
+        mergedPages.push(captureData.pages[p]);
+      }
+    }
+
+    await chrome.storage.local.set({
+      liveCapture: {
+        videoId,
+        videoTitle: captureData.videoTitle,
+        isCapturing: true,
+        pages: mergedPages,
+        captureSettings: captureData.captureSettings
+      }
+    });
+  }
+
   // 完成後標記為非擷取中 - 保留現有頁面的調整
   const finalResult = await chrome.storage.local.get(['liveCapture']);
   const finalData = finalResult.liveCapture || {};
