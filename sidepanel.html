@@ -4,424 +4,383 @@
 <head>
     <meta charset="UTF-8">
     <title>字幕電子書製作器</title>
+    <link rel="stylesheet" href="theme.css">
     <style>
         body {
-            width: 100%;
-            padding: 15px;
-            font-family: Arial, sans-serif;
-            box-sizing: border-box;
+            padding: 15px 15px 80px 15px;
+            /* Add bottom padding for sticky footer */
             margin: 0;
+            height: 100vh;
+            overflow-y: auto;
         }
 
         h3 {
-            margin-top: 0;
-            color: #333;
+            margin: 0 0 20px 0;
+            color: var(--text-primary);
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .section {
-            margin-bottom: 15px;
+        .settings-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
-        label {
+        /* Accordion */
+        .accordion {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .accordion-header {
+            background-color: var(--surface-color);
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 500;
+            user-select: none;
+        }
+
+        .accordion-header:hover {
+            background-color: #2a2a2a;
+        }
+
+        .accordion-content {
+            padding: 15px;
+            display: none;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .accordion.open .accordion-content {
             display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-            color: #666;
         }
 
-        input,
-        select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
+        .accordion-icon {
+            transition: transform 0.3s;
         }
 
+        .accordion.open .accordion-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Sliders */
         input[type="range"] {
             -webkit-appearance: none;
             width: 100%;
-            height: 8px;
-            border-radius: 4px;
-            background: linear-gradient(to right, #4CAF50, #ff9800);
+            height: 4px;
+            border-radius: 2px;
+            background: #333;
             outline: none;
-            padding: 0;
-            margin: 8px 0;
+            margin: 10px 0;
+            border: none;
         }
 
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
-            background: #fff;
-            border: 2px solid #4CAF50;
+            background: var(--secondary-color);
             cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s;
         }
 
         input[type="range"]::-webkit-slider-thumb:hover {
-            background: #f0f0f0;
+            transform: scale(1.2);
         }
 
         .slider-value {
-            display: inline-block;
-            background: #4CAF50;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
+            float: right;
+            color: var(--secondary-color);
             font-weight: bold;
-            font-size: 13px;
         }
 
-        button {
+        /* Sticky Footer */
+        .sticky-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
             width: 100%;
-            padding: 10px;
-            background: #ff0000;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
+            padding: 15px;
+            background-color: var(--bg-color);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            box-sizing: border-box;
+            z-index: 100;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .sticky-footer button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 24px;
             font-size: 14px;
-            margin-top: 10px;
+            font-weight: bold;
         }
 
-        button:hover {
-            background: #cc0000;
-        }
-
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        button#previewButton {
-            background: #4CAF50;
-            margin-top: 5px;
-        }
-
-        button#previewButton:hover {
-            background: #45a049;
-        }
-
-        .status {
-            margin-top: 10px;
-            padding: 10px;
-            background: #f0f0f0;
-            border-radius: 4px;
-            font-size: 12px;
+        /* Progress & Status */
+        .status-overlay {
             display: none;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+            background: var(--surface-color);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
         }
 
-        .status.show {
-            display: block;
+        .status-overlay.show {
+            display: flex;
         }
 
-        .progress {
-            margin-top: 10px;
-            height: 20px;
-            background: #f0f0f0;
-            border-radius: 10px;
+        .progress-container {
+            height: 6px;
+            background-color: #333;
+            border-radius: 3px;
             overflow: hidden;
-            display: none;
-        }
-
-        .progress.show {
-            display: block;
+            width: 100%;
         }
 
         .progress-bar {
             height: 100%;
-            background: #4CAF50;
+            width: 0%;
+            background-color: var(--success-color);
             transition: width 0.3s;
         }
 
-        .saved-section {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #ddd;
+        /* Library / Saved Results */
+        .library-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
         }
 
-        .saved-section label {
-            color: #333;
-            font-weight: bold;
+        .library-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
         }
 
-        .saved-section select {
-            margin-bottom: 5px;
+        .library-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: var(--surface-color);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border-color);
         }
 
-        .btn-group {
+        .library-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .library-title {
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-primary);
+        }
+
+        .library-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .library-actions {
             display: flex;
             gap: 5px;
         }
 
-        .btn-group button {
-            flex: 1;
-            margin-top: 5px;
-        }
-
-        button#loadResult {
-            background: #2196F3;
-        }
-
-        button#loadResult:hover {
-            background: #1976D2;
-        }
-
-        button#deleteResult {
-            background: #ff4444;
-        }
-
-        button#deleteResult:hover {
-            background: #cc0000;
-        }
-
-        .export-section {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #ddd;
-        }
-
-        .export-section label {
-            color: #333;
-            font-weight: bold;
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .checkbox-list {
-            max-height: 120px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 5px;
-            margin-bottom: 8px;
-            background: #fafafa;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
             padding: 4px;
-            border-radius: 3px;
+            border-radius: 4px;
         }
 
-        .checkbox-item:hover {
-            background: #f0f0f0;
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
         }
 
-        .checkbox-item input {
-            width: auto;
-            margin-right: 8px;
-        }
-
-        .checkbox-item span {
-            font-size: 12px;
-            color: #333;
-        }
-
-        button#exportPdf {
-            background: #9C27B0;
-        }
-
-        button#exportPdf:hover {
-            background: #7B1FA2;
-        }
-
-        button#selectAll {
-            background: #607D8B;
-            font-size: 12px;
-            padding: 6px;
-        }
-
-        /* 自訂確認對話框 */
-        .confirm-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .confirm-overlay.show {
-            display: flex;
-        }
-
-        .confirm-dialog {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            max-width: 260px;
-            text-align: center;
-        }
-
-        .confirm-dialog p {
-            margin: 0 0 15px 0;
-            font-size: 14px;
-            color: #333;
-        }
-
-        .confirm-dialog .btn-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        .confirm-dialog button {
-            flex: 1;
-            margin: 0;
-            padding: 8px;
-        }
-
-        .confirm-dialog button.confirm-yes {
-            background: #ff4444;
-        }
-
-        .confirm-dialog button.confirm-no {
-            background: #999;
+        /* Helper for hiding elements */
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 
 <body>
-    <h3>📺 字幕電子書製作器</h3>
+    <h3>
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="red">
+            <path
+                d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+        </svg>
+        字幕電子書
+    </h3>
 
-    <div class="section">
-        <label>開始時間</label>
-        <select id="startTimeOption">
-            <option value="beginning">從頭開始</option>
-            <option value="current" selected>從當前時間</option>
-        </select>
-    </div>
+    <!-- Main Settings Form -->
+    <div id="settingsForm" class="settings-container">
+        <!-- Basic Settings -->
+        <div class="card">
+            <div class="input-group">
+                <label>每頁行數</label>
+                <select id="linesPerPage">
+                    <option value="3">3行</option>
+                    <option value="5" selected>5行</option>
+                    <option value="7">7行</option>
+                    <option value="10">10行</option>
+                    <option value="15">15行</option>
+                </select>
+            </div>
 
-    <div class="section">
-        <label>擷取模式</label>
-        <select id="captureMode">
-            <option value="interval" selected>固定間隔</option>
-            <option value="smart">🤖 智慧擷取（偵測字幕變化）</option>
-        </select>
-    </div>
+            <div class="input-group">
+                <label>製作範圍</label>
+                <select id="totalPages">
+                    <option value="all" selected>全部（到結尾）</option>
+                    <option value="5">預覽 5 頁</option>
+                    <option value="10">預覽 10 頁</option>
+                    <option value="20">預覽 20 頁</option>
+                </select>
+            </div>
 
-    <!-- 固定間隔模式設定 -->
-    <div class="section interval-options" id="intervalOptions">
-        <label>截圖間隔: <span id="intervalValue" class="slider-value">2.0 秒</span></label>
-        <input type="range" id="captureInterval" min="1" max="10" step="0.1" value="2">
-    </div>
+            <div class="input-group">
+                <label>開始時間</label>
+                <select id="startTimeOption">
+                    <option value="beginning">從頭開始</option>
+                    <option value="current" selected>從當前時間</option>
+                </select>
+            </div>
 
-    <!-- 智慧擷取模式設定 -->
-    <div class="section smart-options" id="smartOptions" style="display:none;">
-        <label>檢測頻率</label>
-        <select id="checkInterval">
-            <option value="100">高（每 0.1 秒）- 較耗資源</option>
-            <option value="200" selected>中（每 0.2 秒）- 推薦</option>
-            <option value="300">低（每 0.3 秒）- 較省資源</option>
-        </select>
-        <label style="margin-top: 10px;">變化敏感度: <span id="sensitivityValue" class="slider-value">30%</span></label>
-        <input type="range" id="sensitivity" min="2" max="50" step="1" value="30">
-        <div style="font-size: 11px; color: #888; margin-top: 5px;">
-            較低 = 更敏感（較多截圖）｜較高 = 只捕捉明顯變化
-        </div>
-        <label style="margin-top: 10px;">字幕顏色</label>
-        <select id="subtitleColor">
-            <option value="white" selected>白色字幕</option>
-            <option value="yellow">黃色字幕</option>
-            <option value="any">任意顏色（不過濾空白）</option>
-        </select>
-        <div style="font-size: 11px; color: #888; margin-top: 5px;">
-            根據字幕顏色過濾空白畫面
-        </div>
-        <label style="margin-top: 10px;">字幕像素比例閾值: <span id="minPixelValue" class="slider-value">0.5%</span></label>
-        <input type="range" id="minPixelPercent" min="0.1" max="5" step="0.1" value="0.5">
-        <div style="font-size: 11px; color: #888; margin-top: 5px;">
-            字幕像素佔比需超過此值才視為有字幕，調高可過濾更多空白
-        </div>
-    </div>
-
-    <div class="section">
-        <label>每頁顯示行數</label>
-        <select id="linesPerPage">
-            <option value="3">3行</option>
-            <option value="5" selected>5行</option>
-            <option value="7">7行</option>
-            <option value="10">10行</option>
-            <option value="15">15行</option>
-            <option value="20">20行</option>
-            <option value="25">25行</option>
-            <option value="30">30行</option>
-        </select>
-    </div>
-
-    <div class="section">
-        <label>製作頁數</label>
-        <select id="totalPages">
-            <option value="all" selected>全部（到影片結尾）</option>
-            <option value="5">5頁</option>
-            <option value="10">10頁</option>
-            <option value="20">20頁</option>
-            <option value="30">30頁</option>
-            <option value="50">50頁</option>
-            <option value="100">100頁</option>
-        </select>
-    </div>
-
-    <div class="section">
-        <label>字幕區域高度（影片高度的百分比）</label>
-        <input type="number" id="subtitleHeight" value="15" min="5" max="30">
-    </div>
-
-    <div class="section">
-        <label>下方邊界（影片高度的百分比，避免截到進度條）</label>
-        <input type="number" id="bottomMargin" value="0" min="0" max="20">
-    </div>
-
-    <button id="previewButton">🔍 預覽設定效果</button>
-    <button id="startCapture">開始製作電子書</button>
-    <button id="openViewer" style="display: none;">開啟閱讀器</button>
-    <button id="liveReader" style="display: none; background: #9C27B0;">📖 即時閱讀</button>
-
-    <div class="saved-section" id="savedSection">
-        <label>📁 已儲存的段落</label>
-        <select id="savedResults">
-            <option value="">（尚無已儲存的段落）</option>
-        </select>
-        <div class="btn-group">
-            <button id="loadResult">載入</button>
-            <button id="deleteResult">刪除</button>
-        </div>
-    </div>
-
-    <div class="progress" id="progress">
-        <div class="progress-bar" id="progressBar"></div>
-    </div>
-
-    <div class="status" id="status"></div>
-
-    <div class="export-section" id="exportSection">
-        <label>📄 匯出 PDF</label>
-        <div class="checkbox-list" id="exportCheckboxes">
-            <div class="checkbox-item" style="color: #999; font-style: italic;">
-                <span>（載入中...）</span>
+            <div id="intervalOptions">
+                <label>截圖間隔 <span id="intervalValue" class="slider-value">2.0 秒</span></label>
+                <input type="range" id="captureInterval" min="1" max="10" step="0.1" value="2">
             </div>
         </div>
-        <div class="btn-group">
-            <button id="selectAll">全選</button>
-            <button id="exportPdf">匯出 PDF</button>
+
+        <!-- Advanced Settings Accordion -->
+        <div class="accordion" id="advancedAccordion">
+            <div class="accordion-header" id="advancedAccordionHeader">
+                <span>進階設定</span>
+                <span class="accordion-icon">▼</span>
+            </div>
+            <div class="accordion-content">
+                <div class="input-group">
+                    <label>字幕區域高度 (%)</label>
+                    <input type="number" id="subtitleHeight" value="15" min="5" max="40">
+                </div>
+
+                <div class="input-group">
+                    <label>底部邊界 (%)</label>
+                    <input type="number" id="bottomMargin" value="0" min="0" max="20">
+                </div>
+
+                <div class="input-group">
+                    <label>擷取模式</label>
+                    <select id="captureMode">
+                        <option value="interval" selected>固定間隔</option>
+                        <option value="smart">🤖 智慧偵測 (Beta)</option>
+                    </select>
+                </div>
+
+                <!-- Smart Options (Hidden by default) -->
+                <div id="smartOptions" class="hidden">
+                    <div class="input-group">
+                        <label>靈敏度 <span id="sensitivityValue" class="slider-value">30%</span></label>
+                        <input type="range" id="sensitivity" min="2" max="50" step="1" value="30">
+                    </div>
+                </div>
+
+                <button id="previewButton" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">
+                    🔍 預覽效果
+                </button>
+            </div>
+        </div>
+
+        <!-- Saved / Library Section -->
+        <div class="library-section" id="savedSection">
+            <div class="library-header">
+                <label>📚 我的書庫</label>
+            </div>
+            <div class="input-group">
+                <select id="savedResults">
+                    <option value="">（載入中...）</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button id="loadResult" class="btn btn-secondary" style="flex:1;">載入</button>
+                <button id="deleteResult" class="btn btn-danger" style="flex:1;">刪除</button>
+            </div>
         </div>
     </div>
 
-    <!-- 自訂確認對話框 -->
-    <div class="confirm-overlay" id="confirmOverlay">
-        <div class="confirm-dialog">
-            <p id="confirmMessage">確定要刪除這個段落嗎？</p>
-            <div class="btn-group">
-                <button class="confirm-no" id="confirmNo">取消</button>
-                <button class="confirm-yes" id="confirmYes">確定刪除</button>
+    <!-- Status Overlay (Shows during capture) -->
+    <div id="statusOverlay" class="status-overlay">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:bold; color:var(--text-primary);">製作中...</span>
+            <span id="statusPercentage" style="color:var(--secondary-color);">0%</span>
+        </div>
+        <div class="progress-container">
+            <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <div id="status" style="font-size: 12px; color: var(--text-secondary);">初始化...</div>
+
+        <button id="stopCapture" class="btn btn-danger" style="width: 100%;">
+            ⏹ 強制停止
+        </button>
+    </div>
+
+    <!-- Sticky Footer -->
+    <div class="sticky-footer">
+        <button id="startCapture" class="btn btn-primary">
+            🚀 開始製作
+        </button>
+        <button id="liveReader" class="btn btn-secondary"
+            style="background: #9C27B0; border-color: #9C27B0; color: white;">
+            📖 即時閱讀
+        </button>
+        <!-- Open Viewer button changes state of Start button usually, but we can keep it separate or toggle visibility -->
+        <button id="openViewer" class="btn btn-success hidden">
+            ✅ 開啟閱讀器
+        </button>
+    </div>
+
+    <!-- Hidden elements required by original JS to avoid errors if not refactored yet -->
+    <div style="display:none;">
+        <select id="checkInterval">
+            <option value="200">200</option>
+        </select>
+        <select id="subtitleColor">
+            <option value="white">white</option>
+        </select>
+        <input type="range" id="minPixelPercent" value="0.5">
+        <div id="exportSection"></div> <!-- Placeholder if we remove it temporarily or relocate -->
+    </div>
+
+    <!-- Dialogs -->
+    <div class="confirm-overlay" id="confirmOverlay"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:center;">
+        <div class="card" style="width: 250px; text-align: center;">
+            <p id="confirmMessage" style="margin-bottom: 20px;">確認刪除？</p>
+            <div style="display: flex; gap: 10px;">
+                <button id="confirmNo" class="btn btn-secondary" style="flex:1;">取消</button>
+                <button id="confirmYes" class="btn btn-danger" style="flex:1;">刪除</button>
             </div>
         </div>
     </div>

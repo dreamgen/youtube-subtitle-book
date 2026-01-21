@@ -9,15 +9,21 @@ let captureData = {
 
 // 儲存當前設定供重新截圖使用
 let currentConfig = null;
+let isStopRequested = false; // Flag for force stop
 
 // 監聽來自popup的訊息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'startCapture') {
+    isStopRequested = false;
     currentConfig = message.config;
     captureData.linesPerPage = message.config.linesPerPage;
     startCapture(message.config);
     sendResponse({ success: true });
+  } else if (message.action === 'stopCapture') {
+    isStopRequested = true;
+    sendResponse({ success: true });
   } else if (message.action === 'startSmartCapture') {
+    isStopRequested = false;
     currentConfig = message.config;
     captureData.linesPerPage = message.config.linesPerPage;
     startSmartCapture(message.config);
@@ -443,6 +449,12 @@ async function startCapture(config) {
       break;
     }
 
+    // 檢查強制停止
+    if (isStopRequested) {
+      console.log('🛑 強制停止擷取');
+      break;
+    }
+
     // 跳轉到指定時間
     video.currentTime = time;
 
@@ -795,8 +807,8 @@ async function startSmartCapture(config) {
 
     // 檢查停止條件
     const shouldStop =
-      video.paused ||
       video.ended ||
+      isStopRequested ||
       (config.totalPages && captureData.pages.length >= config.totalPages);
 
     if (shouldStop) {

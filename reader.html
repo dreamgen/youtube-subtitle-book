@@ -4,373 +4,120 @@
 <head>
     <meta charset="UTF-8">
     <title>即時閱讀器</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #1a1a1a;
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header {
-            background: #2a2a2a;
-            padding: 15px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid #3a3a3a;
-        }
-
-        .title {
-            font-size: 16px;
-            font-weight: bold;
-            flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .page-info {
-            color: #aaa;
-            font-size: 14px;
-            margin: 0 20px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .page-info input {
-            width: 50px;
-            padding: 5px;
-            font-size: 14px;
-            text-align: center;
-            border: 1px solid #555;
-            border-radius: 4px;
-            background: #333;
-            color: #fff;
-        }
-
-        .page-info input:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-
-        .page-info .current {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-
-        .page-info .total {
-            color: #888;
-        }
-
-        .status {
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            background: #ff9800;
-            color: black;
-        }
-
-        .status.done {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .save-status {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #4CAF50;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            z-index: 10000;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        .main-container {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-
-        .content {
-            flex: 1;
-            padding: 10px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .screenshot-item {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .screenshot-item img {
-            max-width: 100%;
-            border-radius: 4px;
-        }
-
-        .timestamp {
-            position: absolute;
-            right: 10px;
-            bottom: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            color: #4CAF50;
-            font-family: monospace;
-            font-weight: bold;
-        }
-
-        /* 截圖控制按鈕 */
-        .screenshot-controls {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            gap: 5px;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .screenshot-item:hover .screenshot-controls {
-            opacity: 1;
-        }
-
-        .adj-btn {
-            padding: 5px 8px;
-            font-size: 11px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            background: #4a4a4a;
-            color: white;
-            transition: background 0.2s;
-        }
-
-        .adj-btn:hover {
-            background: #5a5a5a;
-        }
-
-        .adj-btn.delete {
-            background: #ff4444;
-        }
-
-        .adj-btn.delete:hover {
-            background: #ff6666;
-        }
-
-        .adj-btn.play {
-            background: #4CAF50;
-        }
-
-        .adj-btn.play:hover {
-            background: #66BB6A;
-        }
-
-        /* 批次刪除 checkbox */
-        .batch-checkbox {
-            position: absolute;
-            left: 10px;
-            top: 10px;
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-            accent-color: #ff4444;
-            z-index: 20;
-        }
-
-        .batch-checkbox:checked+img {
-            opacity: 0.5;
-            outline: 2px solid #ff4444;
-        }
-
-        .batch-mode .screenshot-item {
-            cursor: pointer;
-        }
-
-        .batch-mode .screenshot-controls {
-            display: none !important;
-        }
-
-        /* 上方字幕預覽縮圖 */
-        .upper-preview-container {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            cursor: pointer;
-            z-index: 10;
-        }
-
-        .upper-preview-thumb {
-            width: 35px;
-            height: auto;
-            border: 2px solid #555;
-            border-radius: 4px;
-            opacity: 0.7;
-            transition: opacity 0.2s, border-color 0.2s, transform 0.2s;
-        }
-
-        .upper-preview-container:hover .upper-preview-thumb {
-            opacity: 1;
-            border-color: #4CAF50;
-            transform: scale(1.1);
-        }
-
-        /* 右側控制面板 */
-        .side-controls {
-            width: 100px;
-            background: #2a2a2a;
-            border-left: 1px solid #3a3a3a;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 20px 10px;
-            gap: 15px;
-        }
-
-        .side-controls button {
-            padding: 12px 10px;
-            font-size: 12px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            background: #666;
-            color: white;
-            transition: background 0.2s, opacity 0.2s;
-            white-space: nowrap;
-        }
-
-        .side-controls button:hover:not(:disabled) {
-            opacity: 0.9;
-        }
-
-        .side-controls button:disabled {
-            background: #555 !important;
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-
-        .side-controls button#playAudio {
-            background: #ff0000;
-        }
-
-        .side-controls button#playAudio:hover:not(:disabled) {
-            background: #cc0000;
-        }
-
-        .side-controls button#openYouTube {
-            background: #ff0000;
-            font-size: 11px;
-        }
-
-        .waiting {
-            color: #ff9800;
-            font-size: 11px;
-            text-align: center;
-        }
-
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            font-size: 18px;
-            color: #888;
-        }
-
-        /* 捲動條樣式 */
-        .content::-webkit-scrollbar {
-            width: 10px;
-        }
-
-        .content::-webkit-scrollbar-track {
-            background: #1a1a1a;
-        }
-
-        .content::-webkit-scrollbar-thumb {
-            background: #4a4a4a;
-            border-radius: 5px;
-        }
-
-        .content::-webkit-scrollbar-thumb:hover {
-            background: #5a5a5a;
-        }
-    </style>
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="reader.css">
 </head>
 
 <body>
-    <!-- 保存狀態提示 -->
-    <div class="save-status" id="saveStatus" style="display: none;">
-        ✅ 修改已自動保存
+    <!-- Toast / Save Status -->
+    <div class="toast-container" id="toastContainer">
+        <!-- Dynamic toasts will be added here -->
     </div>
+    <div id="saveStatus" style="display:none;"></div> <!-- Legacy ID support, maybe hidden -->
 
     <div class="header">
         <div class="title" id="videoTitle">載入中...</div>
+
         <div class="page-info">
-            <input type="number" id="pageJumpInput" min="1" value="1" title="輸入頁碼後按 Enter 跳轉">
+            <button id="prevPage" class="adj-btn" style="color:var(--text-secondary)">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+                </svg>
+            </button>
+            <input type="number" id="pageJumpInput" min="1" value="1">
             <span>/</span>
             <span class="total" id="totalPages">-</span>
+            <button id="nextPage" class="adj-btn" style="color:var(--text-secondary)">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+                </svg>
+            </button>
         </div>
-        <div class="status" id="captureStatus">擷取中...</div>
+
+        <div class="status" id="captureStatus" style="font-size:12px; color:var(--text-secondary)">擷取中...</div>
     </div>
 
     <div class="main-container">
         <div class="content" id="pageContent">
             <div class="loading">等待頁面資料...</div>
         </div>
+    </div>
 
-        <div class="side-controls">
-            <button id="prevPage" disabled>◄ 上一頁</button>
-            <button id="playAudio">▶ 播放</button>
-            <button id="nextPage" disabled>下一頁 ►</button>
+    <!-- Floating Control Bar -->
+    <div class="floating-controls" id="floatingControls">
+        <!-- Play / Pause -->
+        <button id="playAudio" class="ctrl-btn" title="播放/暫停">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+            </svg>
+        </button>
+
+        <div class="divider"></div>
+
+        <!-- Mute -->
+        <button id="toggleMute" class="ctrl-btn" title="靜音開關">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path
+                    d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+            </svg>
+        </button>
+
+        <!-- Speed (Using Select for logic compatibility, styled minimal) -->
+        <div style="position: relative; display: flex; align-items: center;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"
+                style="position: absolute; left: 8px; pointer-events: none; color: var(--text-secondary);">
+                <path
+                    d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.44zm-9.79 6.84a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z" />
+            </svg>
             <select id="playbackSpeed"
-                style="padding: 8px; font-size: 12px; border-radius: 5px; background: #444; color: white; border: none;">
-                <option value="1">1x 速度</option>
+                style="appearance: none; background: transparent; border: none; color: transparent; width: 36px; height: 36px; cursor: pointer; position: relative; z-index: 2;">
+                <option value="1">1x</option>
                 <option value="1.25">1.25x</option>
                 <option value="1.5">1.5x</option>
                 <option value="2">2x</option>
             </select>
-            <button id="toggleMute" style="background: #666;">🔊 有聲</button>
-            <button id="openYouTube">📺 YouTube</button>
-            <button id="toggleBatchMode" style="background: #9C27B0;">☑ 批次刪除</button>
-            <button id="confirmBatchDelete" style="background: #ff4444; display: none;">🗑 刪除已選</button>
-            <button id="cancelBatchMode" style="background: #666; display: none;">✖ 取消</button>
-            <span class="waiting" id="waitingMsg" style="display:none;">等待...</span>
         </div>
+
+        <!-- Open YouTube -->
+        <button id="openYouTube" class="ctrl-btn" title="開啟 YouTube">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path
+                    d="M10 15l5.19-3L10 9v6zm11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z" />
+            </svg>
+        </button>
+
+        <div class="divider"></div>
+
+        <!-- Batch Mode Toggle -->
+        <button id="toggleBatchMode" class="ctrl-btn" title="批次刪除">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path
+                    d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z" />
+            </svg>
+        </button>
     </div>
+
+    <!-- Batch Actions Bar (Hidden by default) -->
+    <div class="floating-controls hidden" id="batchControls"
+        style="background: var(--surface-color); border: 1px solid var(--primary-color);">
+        <span style="font-size: 13px; color: var(--text-primary); margin-right: 10px;">已選取項目</span>
+        <button id="confirmBatchDelete" class="adj-btn"
+            style="background: var(--danger-color); padding: 6px 12px; border-radius: 16px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="white" style="margin-right:4px">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+            </svg>
+            刪除
+        </button>
+        <button id="cancelBatchMode" class="ctrl-btn" title="取消">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path
+                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Messages -->
+    <span class="waiting hidden" id="waitingMsg">等待...</span>
 
     <script src="reader.js"></script>
 </body>
