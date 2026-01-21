@@ -167,6 +167,7 @@ function showPage(pageIndex) {
                     <button class="adj-btn" data-action="backward" data-index="${idx}" title="向前 0.2 秒">◄ -0.2s</button>
                     <button class="adj-btn play" data-action="playFromShot" data-index="${idx}" data-time="${shot.time}" title="從此位置播放">▶</button>
                     <button class="adj-btn" data-action="forward" data-index="${idx}" title="向後 0.2 秒">+0.2s ►</button>
+                    <button class="adj-btn" data-action="insertBelow" data-index="${idx}" title="向下插入截圖" style="background:#2196F3;">＋</button>
                 ` : ''}
                 <button class="adj-btn delete" data-action="delete" data-index="${idx}" title="刪除此行">🗑</button>
             </div>

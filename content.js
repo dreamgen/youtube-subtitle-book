@@ -105,6 +105,19 @@ async function handleReaderAdjustment(message) {
       page.screenshots.splice(shotIndex, 1);
       page.startTime = page.screenshots[0].time;
       page.endTime = page.screenshots[page.screenshots.length - 1].time;
+    } else if (adjustAction === 'insertBelow') {
+      // 向下插入複製的截圖
+      const newShot = {
+        time: shot.time + 0.1,  // 稍微後移一點時間
+        imageData: shot.imageData,
+        upperPreview: shot.upperPreview || null,
+        isInserted: true  // 標記為插入的截圖
+      };
+      page.screenshots.splice(shotIndex + 1, 0, newShot);
+
+      // 更新頁面時間範圍
+      page.startTime = Math.min(...page.screenshots.map(s => s.time));
+      page.endTime = Math.max(...page.screenshots.map(s => s.time));
     }
 
     // 儲存更新後的資料
@@ -1206,6 +1219,7 @@ function openViewer(linesPerPage = 5) {
             <button class="adj-btn" data-action="backward" data-index="${idx}" title="向前 0.2 秒">◄ -0.2s</button>
             <button class="adj-btn play" data-action="playFromShot" data-index="${idx}" data-time="${shot.time}" title="從此位置播放">▶</button>
             <button class="adj-btn" data-action="forward" data-index="${idx}" title="向後 0.2 秒">+0.2s ►</button>
+            <button class="adj-btn" data-action="insertBelow" data-index="${idx}" title="向下插入截圖" style="background:#2196F3;">＋</button>
           ` : ''}
           <button class="adj-btn delete" data-action="delete" data-index="${idx}" title="刪除此行">🗑</button>
         </div>
@@ -1341,6 +1355,19 @@ function openViewer(linesPerPage = 5) {
         // 在當前位置上方插入
         page.screenshots.splice(shotIndex, 0, upperShot);
       }
+    } else if (action === 'insertBelow') {
+      // 向下插入複製的截圖
+      const newShot = {
+        time: shot.time + 0.1,  // 稍微後移一點時間
+        imageData: shot.imageData,
+        upperPreview: shot.upperPreview || null,
+        isInserted: true  // 標記為插入的截圖
+      };
+      page.screenshots.splice(shotIndex + 1, 0, newShot);
+
+      // 更新頁面時間範圍
+      page.startTime = Math.min(...page.screenshots.map(s => s.time));
+      page.endTime = Math.max(...page.screenshots.map(s => s.time));
     } else {
       // 調整時間
       const delta = action === 'backward' ? -0.2 : 0.2;
