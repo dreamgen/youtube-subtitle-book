@@ -298,8 +298,41 @@
   </div>
 
   <div class="section">
+    <label>擷取模式</label>
+    <select id="captureMode">
+      <option value="interval" selected>固定間隔</option>
+      <option value="smart">🤖 智慧擷取（偵測字幕變化）</option>
+    </select>
+  </div>
+
+  <!-- 固定間隔模式設定 -->
+  <div class="section interval-options" id="intervalOptions">
     <label>截圖間隔: <span id="intervalValue" class="slider-value">2.0 秒</span></label>
     <input type="range" id="captureInterval" min="1" max="10" step="0.1" value="2">
+  </div>
+
+  <!-- 智慧擷取模式設定 -->
+  <div class="section smart-options" id="smartOptions" style="display:none;">
+    <label>檢測頻率</label>
+    <select id="checkInterval">
+      <option value="100">高（每 0.1 秒）- 較耗資源</option>
+      <option value="200" selected>中（每 0.2 秒）- 推薦</option>
+      <option value="300">低（每 0.3 秒）- 較省資源</option>
+    </select>
+    <label style="margin-top: 10px;">變化敏感度: <span id="sensitivityValue" class="slider-value">30%</span></label>
+    <input type="range" id="sensitivity" min="2" max="50" step="1" value="30">
+    <div style="font-size: 11px; color: #888; margin-top: 5px;">
+      較低 = 更敏感（較多截圖）｜較高 = 只捕捉明顯變化
+    </div>
+    <label style="margin-top: 10px;">字幕顏色</label>
+    <select id="subtitleColor">
+      <option value="white" selected>白色字幕</option>
+      <option value="yellow">黃色字幕</option>
+      <option value="any">任意顏色（不過濾空白）</option>
+    </select>
+    <div style="font-size: 11px; color: #888; margin-top: 5px;">
+      根據字幕顏色過濾空白畫面，避免無字幕時截圖
+    </div>
   </div>
 
   <div class="section">

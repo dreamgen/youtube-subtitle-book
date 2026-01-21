@@ -26,6 +26,7 @@
         "https://www.youtube.com/watch*"
       ],
       "js": [
+        "subtitleDetection.js",
         "content.js"
       ],
       "css": [

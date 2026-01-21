@@ -1,7 +1,11 @@
 // 設定管理 - 儲存和載入設定
 const DEFAULT_SETTINGS = {
   startTimeOption: 'current',
+  captureMode: 'interval',
   captureInterval: 2,
+  checkInterval: 200,
+  sensitivity: 30,
+  subtitleColor: 'white',
   linesPerPage: 5,
   totalPages: 'all',
   subtitleHeight: 15,
@@ -37,12 +41,20 @@ async function loadSettings() {
 
   // 套用設定到 UI
   document.getElementById('startTimeOption').value = settings.startTimeOption;
+  document.getElementById('captureMode').value = settings.captureMode || 'interval';
   document.getElementById('captureInterval').value = settings.captureInterval;
   document.getElementById('intervalValue').textContent = parseFloat(settings.captureInterval).toFixed(1) + ' 秒';
+  document.getElementById('checkInterval').value = settings.checkInterval || 200;
+  document.getElementById('sensitivity').value = settings.sensitivity || 30;
+  document.getElementById('sensitivityValue').textContent = (settings.sensitivity || 30) + '%';
+  document.getElementById('subtitleColor').value = settings.subtitleColor || 'white';
   document.getElementById('linesPerPage').value = settings.linesPerPage;
   document.getElementById('totalPages').value = settings.totalPages;
   document.getElementById('subtitleHeight').value = settings.subtitleHeight;
   document.getElementById('bottomMargin').value = settings.bottomMargin;
+
+  // 根據模式顯示對應選項
+  updateCaptureMode(settings.captureMode || 'interval');
 }
 
 // 儲存設定
@@ -52,7 +64,11 @@ async function saveSettings() {
 
   const settings = {
     startTimeOption: document.getElementById('startTimeOption').value,
+    captureMode: document.getElementById('captureMode').value,
     captureInterval: parseFloat(document.getElementById('captureInterval').value),
+    checkInterval: parseInt(document.getElementById('checkInterval').value),
+    sensitivity: parseInt(document.getElementById('sensitivity').value),
+    subtitleColor: document.getElementById('subtitleColor').value,
     linesPerPage: parseInt(document.getElementById('linesPerPage').value),
     totalPages: document.getElementById('totalPages').value,
     subtitleHeight: parseInt(document.getElementById('subtitleHeight').value),
@@ -79,8 +95,33 @@ document.getElementById('captureInterval').addEventListener('input', (e) => {
 });
 
 // 監聽所有設定變更
-['startTimeOption', 'linesPerPage', 'totalPages', 'subtitleHeight', 'bottomMargin'].forEach(id => {
+['startTimeOption', 'captureMode', 'checkInterval', 'subtitleColor', 'linesPerPage', 'totalPages', 'subtitleHeight', 'bottomMargin'].forEach(id => {
   document.getElementById(id).addEventListener('change', saveSettings);
+});
+
+// 擷取模式切換
+function updateCaptureMode(mode) {
+  const intervalOptions = document.getElementById('intervalOptions');
+  const smartOptions = document.getElementById('smartOptions');
+
+  if (mode === 'smart') {
+    intervalOptions.style.display = 'none';
+    smartOptions.style.display = 'block';
+  } else {
+    intervalOptions.style.display = 'block';
+    smartOptions.style.display = 'none';
+  }
+}
+
+document.getElementById('captureMode').addEventListener('change', (e) => {
+  updateCaptureMode(e.target.value);
+  saveSettings();
+});
+
+// 敏感度滑軸即時更新
+document.getElementById('sensitivity').addEventListener('input', (e) => {
+  document.getElementById('sensitivityValue').textContent = e.target.value + '%';
+  saveSettings();
 });
 
 // 預覽按鈕事件
@@ -162,11 +203,21 @@ document.getElementById('startCapture').addEventListener('click', async () => {
   progress.className = 'progress show';
   progressBar.style.width = '0%';
 
+  // 獲取擷取模式和智慧擷取設定
+  const captureMode = document.getElementById('captureMode').value;
+  const checkInterval = parseInt(document.getElementById('checkInterval').value);
+  const sensitivity = parseInt(document.getElementById('sensitivity').value);
+  const subtitleColor = document.getElementById('subtitleColor').value;
+
   chrome.tabs.sendMessage(tab.id, {
-    action: 'startCapture',
+    action: captureMode === 'smart' ? 'startSmartCapture' : 'startCapture',
     config: {
       startTimeOption,
+      captureMode,
       captureInterval,
+      checkInterval,
+      sensitivity,
+      subtitleColor,
       linesPerPage,
       totalPages,
       subtitleHeight,

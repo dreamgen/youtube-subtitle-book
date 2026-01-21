@@ -17,6 +17,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     captureData.linesPerPage = message.config.linesPerPage;
     startCapture(message.config);
     sendResponse({ success: true });
+  } else if (message.action === 'startSmartCapture') {
+    currentConfig = message.config;
+    captureData.linesPerPage = message.config.linesPerPage;
+    startSmartCapture(message.config);
+    sendResponse({ success: true });
   } else if (message.action === 'openViewer') {
     openViewer(captureData.linesPerPage);
     sendResponse({ success: true });
@@ -574,6 +579,315 @@ async function startCapture(config) {
   }
 
   updateProgress(100, '完成！已截取 ' + captureData.screenshots.length + ' 張圖片，共 ' + captureData.pages.length + ' 頁');
+}
+
+/**
+ * 智慧擷取模式 - 偵測字幕變化時才截圖
+ */
+async function startSmartCapture(config) {
+  const video = document.querySelector('video');
+  if (!video) {
+    updateProgress(0, '找不到影片元素');
+    return;
+  }
+
+  // 取得影片資訊
+  captureData.videoTitle = document.title.replace(' - YouTube', '');
+  captureData.videoDuration = video.duration;
+
+  // 決定開始時間
+  const startTime = config.startTimeOption === 'current' ? video.currentTime : 0;
+
+  // 建立 canvas 用於截圖和比較
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const compareCanvas = document.createElement('canvas');
+  const compareCtx = compareCanvas.getContext('2d');
+
+  // 計算字幕區域
+  const videoWidth = video.videoWidth;
+  const videoHeight = video.videoHeight;
+  const subtitleRegionHeight = Math.floor(videoHeight * (config.subtitleHeight / 100));
+  const bottomMarginHeight = Math.floor(videoHeight * ((config.bottomMargin || 0) / 100));
+  const subtitleRegionY = videoHeight - subtitleRegionHeight - bottomMarginHeight;
+
+  // 儲存截圖設定
+  captureData.captureSettings = {
+    videoWidth,
+    videoHeight,
+    subtitleRegionHeight,
+    bottomMarginHeight,
+    subtitleRegionY,
+    subtitleHeight: config.subtitleHeight,
+    bottomMargin: config.bottomMargin || 0
+  };
+
+  canvas.width = videoWidth;
+  canvas.height = subtitleRegionHeight;
+  compareCanvas.width = videoWidth;
+  compareCanvas.height = subtitleRegionHeight;
+
+  updateProgress(0, '🤖 智慧擷取模式啟動...');
+
+  // 初始化資料
+  captureData.screenshots = [];
+  captureData.pages = [];
+  let currentPageScreenshots = [];
+  let lastImageData = null;
+  let capturedCount = 0;
+  let lastCaptureTime = -1;
+  const minCaptureInterval = 0.5; // 最小截圖間隔（秒）
+
+  // 計算預估截圖數量
+  const estimatedCaptures = config.totalPages
+    ? config.totalPages * config.linesPerPage
+    : Math.floor((video.duration - startTime) / 2); // 預估每 2 秒一張
+
+  const videoId = new URL(window.location.href).searchParams.get('v');
+
+  // 初始化即時閱讀資料
+  await chrome.storage.local.set({
+    liveCapture: {
+      videoId,
+      videoTitle: captureData.videoTitle,
+      isCapturing: true,
+      pages: [],
+      captureSettings: captureData.captureSettings
+    }
+  });
+
+  // 設定開始時間並播放
+  video.currentTime = startTime;
+  await sleep(300);
+  video.play();
+
+  // 輪詢檢查字幕變化
+  const checkIntervalMs = config.checkInterval || 200;
+  const sensitivity = config.sensitivity || 8;
+
+  console.log(`🤖 智慧擷取：檢測頻率 ${checkIntervalMs}ms, 敏感度 ${sensitivity}%`);
+
+  const checkLoop = setInterval(async () => {
+    // 檢查停止條件
+    const shouldStop =
+      video.paused ||
+      video.ended ||
+      (config.totalPages && captureData.pages.length >= config.totalPages);
+
+    if (shouldStop) {
+      clearInterval(checkLoop);
+      await finishSmartCapture(videoId, config);
+      return;
+    }
+
+    const currentTime = video.currentTime;
+
+    // 截取當前字幕區域到比較用 canvas
+    compareCtx.drawImage(
+      video,
+      0, subtitleRegionY, videoWidth, subtitleRegionHeight,
+      0, 0, videoWidth, subtitleRegionHeight
+    );
+
+    const currentImageData = compareCtx.getImageData(0, 0, compareCanvas.width, compareCanvas.height);
+
+    // 判斷是否需要截圖
+    let shouldCapture = false;
+    const subtitleColor = config.subtitleColor || 'white';
+
+    // 先檢查是否有字幕文字
+    const textCheck = hasSubtitleText(currentImageData, subtitleColor);
+
+    if (!textCheck.hasText) {
+      // 無字幕，跳過
+      // console log 已在 hasSubtitleText 函數內處理
+    } else if (!lastImageData) {
+      // 首張截圖（有字幕）
+      shouldCapture = true;
+      console.log('📷 首張截圖');
+    } else if (currentTime - lastCaptureTime >= minCaptureInterval) {
+      // 比較像素差異
+      const comparison = quickCompare(lastImageData, currentImageData, sensitivity);
+
+      if (comparison.shouldCapture) {
+        shouldCapture = true;
+        console.log(`📷 偵測到變化 (${comparison.diffPercent.toFixed(1)}%) @ ${currentTime.toFixed(1)}s`);
+      }
+    }
+
+    if (shouldCapture) {
+      // 截圖到主 canvas
+      ctx.drawImage(
+        video,
+        0, subtitleRegionY, videoWidth, subtitleRegionHeight,
+        0, 0, videoWidth, subtitleRegionHeight
+      );
+
+      const imageData = canvas.toDataURL('image/jpeg', 0.7);
+
+      // 截取上方區域預覽
+      const upperSubtitleY = subtitleRegionY - subtitleRegionHeight;
+      let upperPreview = null;
+
+      if (upperSubtitleY >= 0) {
+        const previewCanvas = document.createElement('canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        const centerWidth = Math.floor(videoWidth * 0.3);
+        const centerX = Math.floor((videoWidth - centerWidth) / 2);
+        const thumbWidth = 100;
+        const thumbHeight = Math.floor(subtitleRegionHeight * thumbWidth / centerWidth);
+
+        previewCanvas.width = thumbWidth;
+        previewCanvas.height = thumbHeight;
+
+        previewCtx.drawImage(
+          video,
+          centerX, upperSubtitleY, centerWidth, subtitleRegionHeight,
+          0, 0, thumbWidth, thumbHeight
+        );
+
+        upperPreview = previewCanvas.toDataURL('image/jpeg', 0.5);
+      }
+
+      const shot = {
+        time: currentTime,
+        imageData: imageData,
+        upperPreview: upperPreview
+      };
+
+      captureData.screenshots.push(shot);
+      currentPageScreenshots.push(shot);
+      capturedCount++;
+      lastCaptureTime = currentTime;
+      lastImageData = currentImageData;
+
+      // 組合頁面
+      if (currentPageScreenshots.length >= config.linesPerPage) {
+        const page = {
+          pageNumber: captureData.pages.length + 1,
+          startTime: currentPageScreenshots[0].time,
+          endTime: currentPageScreenshots[currentPageScreenshots.length - 1].time,
+          screenshots: [...currentPageScreenshots]
+        };
+
+        captureData.pages.push(page);
+        currentPageScreenshots = [];
+
+        // 即時儲存
+        const existingResult = await chrome.storage.local.get(['liveCapture']);
+        const existingData = existingResult.liveCapture || {};
+        const existingPages = existingData.pages || [];
+
+        const mergedPages = [];
+        for (let p = 0; p < captureData.pages.length; p++) {
+          if (p < existingPages.length) {
+            mergedPages.push(existingPages[p]);
+          } else {
+            mergedPages.push(captureData.pages[p]);
+          }
+        }
+
+        await chrome.storage.local.set({
+          liveCapture: {
+            videoId,
+            videoTitle: captureData.videoTitle,
+            isCapturing: true,
+            pages: mergedPages,
+            captureSettings: captureData.captureSettings
+          }
+        });
+      }
+
+      // 更新進度
+      const progress = Math.min(90, Math.floor((capturedCount / estimatedCaptures) * 90));
+      updateProgress(progress, `🤖 智慧擷取中... ${capturedCount} 張 (${captureData.pages.length} 頁)`);
+    }
+  }, checkIntervalMs);
+
+  // 監聽影片結束
+  video.addEventListener('ended', () => {
+    clearInterval(checkLoop);
+  }, { once: true });
+}
+
+/**
+ * 完成智慧擷取
+ */
+async function finishSmartCapture(videoId, config) {
+  const video = document.querySelector('video');
+  if (video) video.pause();
+
+  // 處理未滿一頁的剩餘截圖
+  if (captureData.screenshots.length > captureData.pages.length * config.linesPerPage) {
+    const startIdx = captureData.pages.length * config.linesPerPage;
+    const remainingShots = captureData.screenshots.slice(startIdx);
+
+    if (remainingShots.length > 0) {
+      const page = {
+        pageNumber: captureData.pages.length + 1,
+        startTime: remainingShots[0].time,
+        endTime: remainingShots[remainingShots.length - 1].time,
+        screenshots: remainingShots
+      };
+      captureData.pages.push(page);
+    }
+  }
+
+  // 儲存資料
+  updateProgress(95, '儲存資料中...');
+
+  try {
+    await chrome.storage.local.set({ captureData: captureData });
+
+    const finalResult = await chrome.storage.local.get(['liveCapture']);
+    const finalData = finalResult.liveCapture || {};
+    const finalPages = finalData.pages || captureData.pages;
+
+    await chrome.storage.local.set({
+      liveCapture: {
+        videoId,
+        videoTitle: captureData.videoTitle,
+        isCapturing: false,
+        pages: finalPages,
+        captureSettings: captureData.captureSettings
+      }
+    });
+
+    // 段落儲存
+    if (captureData.pages.length > 0) {
+      const startTime = captureData.pages[0].startTime;
+      const endTime = captureData.pages[captureData.pages.length - 1].endTime;
+      const segmentKey = `${videoId}_${Math.floor(startTime)}_${Math.floor(endTime)}`;
+
+      const result = await chrome.storage.local.get(['savedSegments']);
+      let segments = result.savedSegments || [];
+      segments = segments.filter(s => s.key !== segmentKey);
+
+      segments.push({
+        key: segmentKey,
+        videoId,
+        videoTitle: captureData.videoTitle,
+        startTime,
+        endTime,
+        pageCount: captureData.pages.length,
+        screenshotCount: captureData.screenshots.length,
+        createdAt: Date.now()
+      });
+
+      await chrome.storage.local.set({
+        savedSegments: segments,
+        [`segment_${segmentKey}`]: captureData
+      });
+
+      console.log('段落已儲存:', segmentKey);
+    }
+
+    console.log('資料已儲存');
+  } catch (error) {
+    console.error('儲存失敗:', error);
+  }
+
+  updateProgress(100, `🤖 智慧擷取完成！${captureData.screenshots.length} 張圖片，${captureData.pages.length} 頁`);
 }
 
 async function createPages(linesPerPage) {
