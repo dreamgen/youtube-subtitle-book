@@ -409,12 +409,35 @@ async function startCapture(config) {
   for (let i = 0; i < totalCaptures; i++) {
     const time = startTime + (i * config.captureInterval);
 
+    // 檢查時間是否超過影片長度
+    if (time >= video.duration) {
+      console.log(`時間 ${time} 超過影片長度 ${video.duration}，結束擷取`);
+      break;
+    }
+
     // 跳轉到指定時間
     video.currentTime = time;
 
-    // 等待影片跳轉完成
+    // 等待影片跳轉完成（加入超時機制）
+    const seekTimeout = 5000; // 5 秒超時
+    const seekStartTime = Date.now();
+
     await new Promise(resolve => {
       const checkReady = () => {
+        // 超時檢查
+        if (Date.now() - seekStartTime > seekTimeout) {
+          console.warn(`跳轉到 ${time} 秒超時，繼續下一張`);
+          resolve();
+          return;
+        }
+
+        // 影片已結束
+        if (video.ended) {
+          console.log('影片已結束');
+          resolve();
+          return;
+        }
+
         if (Math.abs(video.currentTime - time) < 0.1 && video.readyState >= 2) {
           resolve();
         } else {
@@ -423,6 +446,12 @@ async function startCapture(config) {
       };
       checkReady();
     });
+
+    // 如果影片已結束，跳出迴圈
+    if (video.ended) {
+      console.log('影片已結束，停止擷取');
+      break;
+    }
 
     // 再等待一點時間確保畫面穩定
     await sleep(200);
