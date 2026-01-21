@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>產生圖示</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+    }
+    h1 {
+      color: #333;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      margin: 10px;
+    }
+    .info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>圖示產生器</h1>
+    <p>點擊下方按鈕產生Chrome擴充功能所需的圖示檔案</p>
+
+    <div class="info">
+      <strong>說明：</strong><br>
+      此工具會產生三個簡單的紅色圖示檔案，帶有白色的「YT」文字。<br>
+      點擊按鈕後，會自動下載三個PNG檔案。
+    </div>
+
+    <button onclick="generateIcons()">產生圖示檔案</button>
+
+    <div id="preview" style="margin-top: 20px;">
+      <h3>預覽：</h3>
+    </div>
+  </div>
+
+  <script>
+    function generateIcon(size) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // 背景
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(0, 0, size, size);
+
+      // 文字
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${size * 0.4}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('YT', size / 2, size / 2);
+
+      return canvas;
+    }
+
+    function downloadCanvas(canvas, filename) {
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function generateIcons() {
+      const preview = document.getElementById('preview');
+      preview.innerHTML = '<h3>預覽：</h3>';
+
+      // 產生三個尺寸的圖示
+      const sizes = [16, 48, 128];
+
+      sizes.forEach(size => {
+        const canvas = generateIcon(size);
+
+        // 顯示預覽
+        const previewCanvas = canvas.cloneNode();
+        previewCanvas.style.margin = '10px';
+        preview.appendChild(previewCanvas);
+
+        // 下載
+        setTimeout(() => {
+          downloadCanvas(canvas, `icon${size}.png`);
+        }, 100 * sizes.indexOf(size));
+      });
+
+      alert('圖示檔案已開始下載！請將下載的icon16.png、icon48.png、icon128.png放到擴充功能資料夾中。');
+    }
+  </script>
+</body>
+</html>

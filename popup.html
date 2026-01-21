@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    h3 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .section {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #4CAF50, #ff9800);
+      outline: none;
+      padding: 0;
+      margin: 8px 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #4CAF50;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #f0f0f0;
+    }
+
+    .slider-value {
+      display: inline-block;
+      background: #4CAF50;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #ff0000;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background: #cc0000;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    button#previewButton {
+      background: #4CAF50;
+      margin-top: 5px;
+    }
+
+    button#previewButton:hover {
+      background: #45a049;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      font-size: 12px;
+      display: none;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .progress {
+      margin-top: 10px;
+      height: 20px;
+      background: #f0f0f0;
+      border-radius: 10px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .progress.show {
+      display: block;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: #4CAF50;
+      transition: width 0.3s;
+    }
+
+    .saved-section {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #ddd;
+    }
+
+    .saved-section label {
+      color: #333;
+      font-weight: bold;
+    }
+
+    .saved-section select {
+      margin-bottom: 5px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 5px;
+    }
+
+    .btn-group button {
+      flex: 1;
+      margin-top: 5px;
+    }
+
+    button#loadResult {
+      background: #2196F3;
+    }
+
+    button#loadResult:hover {
+      background: #1976D2;
+    }
+
+    button#deleteResult {
+      background: #ff4444;
+    }
+
+    button#deleteResult:hover {
+      background: #cc0000;
+    }
+
+    .export-section {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #ddd;
+    }
+
+    .export-section label {
+      color: #333;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .checkbox-list {
+      max-height: 120px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 5px;
+      margin-bottom: 8px;
+      background: #fafafa;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      border-radius: 3px;
+    }
+
+    .checkbox-item:hover {
+      background: #f0f0f0;
+    }
+
+    .checkbox-item input {
+      width: auto;
+      margin-right: 8px;
+    }
+
+    .checkbox-item span {
+      font-size: 12px;
+      color: #333;
+    }
+
+    button#exportPdf {
+      background: #9C27B0;
+    }
+
+    button#exportPdf:hover {
+      background: #7B1FA2;
+    }
+
+    button#selectAll {
+      background: #607D8B;
+      font-size: 12px;
+      padding: 6px;
+    }
+
+    /* 自訂確認對話框 */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .confirm-overlay.show {
+      display: flex;
+    }
+
+    .confirm-dialog {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      max-width: 260px;
+      text-align: center;
+    }
+
+    .confirm-dialog p {
+      margin: 0 0 15px 0;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .confirm-dialog .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .confirm-dialog button {
+      flex: 1;
+      margin: 0;
+      padding: 8px;
+    }
+
+    .confirm-dialog button.confirm-yes {
+      background: #ff4444;
+    }
+
+    .confirm-dialog button.confirm-no {
+      background: #999;
+    }
+  </style>
+</head>
+
+<body>
+  <h3>字幕電子書製作器</h3>
+
+  <div class="section">
+    <label>開始時間</label>
+    <select id="startTimeOption">
+      <option value="beginning">從頭開始</option>
+      <option value="current" selected>從當前時間</option>
+    </select>
+  </div>
+
+  <div class="section">
+    <label>截圖間隔: <span id="intervalValue" class="slider-value">2.0 秒</span></label>
+    <input type="range" id="captureInterval" min="1" max="10" step="0.1" value="2">
+  </div>
+
+  <div class="section">
+    <label>每頁顯示行數</label>
+    <select id="linesPerPage">
+      <option value="3">3行</option>
+      <option value="5" selected>5行</option>
+      <option value="7">7行</option>
+      <option value="10">10行</option>
+      <option value="15">15行</option>
+      <option value="20">20行</option>
+    </select>
+  </div>
+
+  <div class="section">
+    <label>製作頁數</label>
+    <select id="totalPages">
+      <option value="all" selected>全部（到影片結尾）</option>
+      <option value="5">5頁</option>
+      <option value="10">10頁</option>
+      <option value="20">20頁</option>
+      <option value="30">30頁</option>
+      <option value="50">50頁</option>
+    </select>
+  </div>
+
+  <div class="section">
+    <label>字幕區域高度（影片高度的百分比）</label>
+    <input type="number" id="subtitleHeight" value="15" min="5" max="30">
+  </div>
+
+  <div class="section">
+    <label>下方邊界（影片高度的百分比，避免截到進度條）</label>
+    <input type="number" id="bottomMargin" value="0" min="0" max="20">
+  </div>
+
+  <button id="previewButton">🔍 預覽設定效果</button>
+  <button id="startCapture">開始製作電子書</button>
+  <button id="openViewer" style="display: none;">開啟閱讀器</button>
+  <button id="liveReader" style="display: none; background: #9C27B0;">📖 即時閱讀</button>
+
+  <div class="saved-section" id="savedSection">
+    <label>📁 已儲存的段落</label>
+    <select id="savedResults">
+      <option value="">（尚無已儲存的段落）</option>
+    </select>
+    <div class="btn-group">
+      <button id="loadResult">載入</button>
+      <button id="deleteResult">刪除</button>
+    </div>
+  </div>
+
+  <div class="progress" id="progress">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="export-section" id="exportSection">
+    <label>📄 匯出 PDF</label>
+    <div class="checkbox-list" id="exportCheckboxes">
+      <div class="checkbox-item" style="color: #999; font-style: italic;">
+        <span>（載入中...）</span>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button id="selectAll">全選</button>
+      <button id="exportPdf">匯出 PDF</button>
+    </div>
+  </div>
+
+  <!-- 自訂確認對話框 -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-dialog">
+      <p id="confirmMessage">確定要刪除這個段落嗎？</p>
+      <div class="btn-group">
+        <button class="confirm-no" id="confirmNo">取消</button>
+        <button class="confirm-yes" id="confirmYes">確定刪除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="jspdf.umd.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+
+</html>

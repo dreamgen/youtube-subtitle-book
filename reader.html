@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <title>即時閱讀器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a1a;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #2a2a2a;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #3a3a3a;
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: bold;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .page-info {
+            color: #aaa;
+            font-size: 14px;
+            margin: 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .page-info input {
+            width: 50px;
+            padding: 5px;
+            font-size: 14px;
+            text-align: center;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: #333;
+            color: #fff;
+        }
+
+        .page-info input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .page-info .current {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .page-info .total {
+            color: #888;
+        }
+
+        .status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #ff9800;
+            color: black;
+        }
+
+        .status.done {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .save-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .content {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .screenshot-item {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .screenshot-item img {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+
+        .timestamp {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #4CAF50;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        /* 截圖控制按鈕 */
+        .screenshot-controls {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 5px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .screenshot-item:hover .screenshot-controls {
+            opacity: 1;
+        }
+
+        .adj-btn {
+            padding: 5px 8px;
+            font-size: 11px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #4a4a4a;
+            color: white;
+            transition: background 0.2s;
+        }
+
+        .adj-btn:hover {
+            background: #5a5a5a;
+        }
+
+        .adj-btn.delete {
+            background: #ff4444;
+        }
+
+        .adj-btn.delete:hover {
+            background: #ff6666;
+        }
+
+        .adj-btn.play {
+            background: #4CAF50;
+        }
+
+        .adj-btn.play:hover {
+            background: #66BB6A;
+        }
+
+        /* 上方字幕預覽縮圖 */
+        .upper-preview-container {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .upper-preview-thumb {
+            width: 35px;
+            height: auto;
+            border: 2px solid #555;
+            border-radius: 4px;
+            opacity: 0.7;
+            transition: opacity 0.2s, border-color 0.2s, transform 0.2s;
+        }
+
+        .upper-preview-container:hover .upper-preview-thumb {
+            opacity: 1;
+            border-color: #4CAF50;
+            transform: scale(1.1);
+        }
+
+        /* 右側控制面板 */
+        .side-controls {
+            width: 100px;
+            background: #2a2a2a;
+            border-left: 1px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 20px 10px;
+            gap: 15px;
+        }
+
+        .side-controls button {
+            padding: 12px 10px;
+            font-size: 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #666;
+            color: white;
+            transition: background 0.2s, opacity 0.2s;
+            white-space: nowrap;
+        }
+
+        .side-controls button:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+
+        .side-controls button:disabled {
+            background: #555 !important;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .side-controls button#playAudio {
+            background: #ff0000;
+        }
+
+        .side-controls button#playAudio:hover:not(:disabled) {
+            background: #cc0000;
+        }
+
+        .side-controls button#openYouTube {
+            background: #ff0000;
+            font-size: 11px;
+        }
+
+        .waiting {
+            color: #ff9800;
+            font-size: 11px;
+            text-align: center;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: 18px;
+            color: #888;
+        }
+
+        /* 捲動條樣式 */
+        .content::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .content::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .content::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+            border-radius: 5px;
+        }
+
+        .content::-webkit-scrollbar-thumb:hover {
+            background: #5a5a5a;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 保存狀態提示 -->
+    <div class="save-status" id="saveStatus" style="display: none;">
+        ✅ 修改已自動保存
+    </div>
+
+    <div class="header">
+        <div class="title" id="videoTitle">載入中...</div>
+        <div class="page-info">
+            <input type="number" id="pageJumpInput" min="1" value="1" title="輸入頁碼後按 Enter 跳轉">
+            <span>/</span>
+            <span class="total" id="totalPages">-</span>
+        </div>
+        <div class="status" id="captureStatus">擷取中...</div>
+    </div>
+
+    <div class="main-container">
+        <div class="content" id="pageContent">
+            <div class="loading">等待頁面資料...</div>
+        </div>
+
+        <div class="side-controls">
+            <button id="prevPage" disabled>◄ 上一頁</button>
+            <button id="playAudio">▶ 播放</button>
+            <button id="nextPage" disabled>下一頁 ►</button>
+            <button id="openYouTube">📺 YouTube</button>
+            <span class="waiting" id="waitingMsg" style="display:none;">等待...</span>
+        </div>
+    </div>
+
+    <script src="reader.js"></script>
+</body>
+
+</html>
