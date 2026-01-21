@@ -1,19 +1,25 @@
 {
   "manifest_version": 3,
   "name": "YouTube字幕電子書製作器",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "將YouTube影片字幕截圖組合成可翻頁的電子書",
   "permissions": [
     "activeTab",
     "storage",
     "tabs",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://www.youtube.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",
