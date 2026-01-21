@@ -9,6 +9,7 @@ let captureSettings = null;
 let isPlaying = false;
 let youtubeTabId = null;
 let keepAliveInterval = null;
+let isBatchMode = false;  // 批次刪除模式
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -145,6 +146,7 @@ function showPage(pageIndex) {
 
     content.innerHTML = page.screenshots.map((shot, idx) => `
         <div class="screenshot-item" style="max-height: ${maxHeight};" data-shot-index="${idx}">
+            ${isBatchMode ? `<input type="checkbox" class="batch-checkbox" data-index="${idx}">` : ''}
             ${shot.upperPreview ? `
                 <div class="upper-preview-container" data-index="${idx}" title="點擊新增上方字幕">
                     <img src="${shot.upperPreview}" class="upper-preview-thumb" alt="上方預覽">
@@ -166,6 +168,13 @@ function showPage(pageIndex) {
 
     // 更新頁碼輸入框
     document.getElementById('pageJumpInput').value = pageIndex + 1;
+
+    // 更新批次模式樣式
+    if (isBatchMode) {
+        content.classList.add('batch-mode');
+    } else {
+        content.classList.remove('batch-mode');
+    }
 
     updateNavigation();
     bindScreenshotEvents();
@@ -313,6 +322,8 @@ async function playPageAudio() {
     if (pages.length === 0 || currentPageIndex >= pages.length) return;
 
     const page = pages[currentPageIndex];
+    const playbackSpeed = parseFloat(document.getElementById('playbackSpeed').value) || 1;
+    const isMuted = document.getElementById('toggleMute').dataset.muted === 'true';
 
     if (!youtubeTabId) {
         // 開啟 YouTube 頁面
@@ -326,11 +337,13 @@ async function playPageAudio() {
         // 切換到 YouTube 分頁
         await chrome.tabs.update(youtubeTabId, { active: true });
 
-        // 發送播放請求
+        // 發送播放請求（包含音量和速度設定）
         await chrome.tabs.sendMessage(youtubeTabId, {
             action: 'playAudioForReader',
             startTime: page.startTime,
-            endTime: page.endTime
+            endTime: page.endTime,
+            playbackRate: playbackSpeed,
+            muted: isMuted
         });
 
         isPlaying = true;
@@ -427,8 +440,120 @@ function setupEventListeners() {
         } else if (e.key === ' ') {
             e.preventDefault();
             playPageAudio();
+        } else if (e.key === 'Escape' && isBatchMode) {
+            exitBatchMode();
         }
     });
+
+    // 批次刪除模式按鈕
+    document.getElementById('toggleBatchMode').addEventListener('click', () => {
+        enterBatchMode();
+    });
+
+    document.getElementById('confirmBatchDelete').addEventListener('click', async () => {
+        await executeBatchDelete();
+    });
+
+    document.getElementById('cancelBatchMode').addEventListener('click', () => {
+        exitBatchMode();
+    });
+
+    // 靜音開關
+    document.getElementById('toggleMute').addEventListener('click', () => {
+        const btn = document.getElementById('toggleMute');
+        const isMuted = btn.dataset.muted === 'true';
+        if (isMuted) {
+            btn.dataset.muted = 'false';
+            btn.textContent = '🔊 有聲';
+            btn.style.background = '#666';
+        } else {
+            btn.dataset.muted = 'true';
+            btn.textContent = '🔇 靜音';
+            btn.style.background = '#ff9800';
+        }
+    });
+}
+
+// 進入批次刪除模式
+function enterBatchMode() {
+    isBatchMode = true;
+    document.getElementById('toggleBatchMode').style.display = 'none';
+    document.getElementById('confirmBatchDelete').style.display = 'block';
+    document.getElementById('cancelBatchMode').style.display = 'block';
+    showPage(currentPageIndex);  // 重新渲染以顯示 checkbox
+}
+
+// 退出批次刪除模式
+function exitBatchMode() {
+    isBatchMode = false;
+    document.getElementById('toggleBatchMode').style.display = 'block';
+    document.getElementById('confirmBatchDelete').style.display = 'none';
+    document.getElementById('cancelBatchMode').style.display = 'none';
+    showPage(currentPageIndex);  // 重新渲染以隱藏 checkbox
+}
+
+// 執行批次刪除
+async function executeBatchDelete() {
+    const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
+    const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+
+    if (selectedIndices.length === 0) {
+        alert('請先勾選要刪除的截圖');
+        return;
+    }
+
+    const page = pages[currentPageIndex];
+    if (selectedIndices.length >= page.screenshots.length) {
+        alert('無法刪除所有截圖，每頁至少需保留一張');
+        return;
+    }
+
+    // 從後向前刪除，避免索引變化
+    const sortedIndices = selectedIndices.sort((a, b) => b - a);
+
+    // 禁用按鈕
+    document.getElementById('confirmBatchDelete').disabled = true;
+    document.getElementById('confirmBatchDelete').textContent = '刪除中...';
+
+    try {
+        // 讀取最新資料
+        const result = await chrome.storage.local.get(['liveCapture']);
+        const data = result.liveCapture;
+
+        if (!data || !data.pages || !data.pages[currentPageIndex]) {
+            alert('找不到頁面資料');
+            return;
+        }
+
+        // 刪除選中的截圖
+        for (const idx of sortedIndices) {
+            data.pages[currentPageIndex].screenshots.splice(idx, 1);
+        }
+
+        // 更新時間範圍
+        const remainingShots = data.pages[currentPageIndex].screenshots;
+        if (remainingShots.length > 0) {
+            data.pages[currentPageIndex].startTime = remainingShots[0].time;
+            data.pages[currentPageIndex].endTime = remainingShots[remainingShots.length - 1].time;
+        }
+
+        // 儲存更新
+        await chrome.storage.local.set({ liveCapture: data });
+
+        // 顯示成功訊息
+        showSaveStatus();
+
+        // 退出批次模式
+        exitBatchMode();
+
+        console.log(`✅ 已刪除 ${sortedIndices.length} 張截圖`);
+    } catch (error) {
+        console.error('批次刪除失敗:', error);
+        alert('刪除失敗: ' + error.message);
+    } finally {
+        document.getElementById('confirmBatchDelete').disabled = false;
+        document.getElementById('confirmBatchDelete').textContent = '🗑 刪除已選';
+    }
 }
 
 // 格式化時間

@@ -306,11 +306,19 @@ async function captureUpperForReader(time, settings) {
 
 // 處理來自 reader 的播放請求
 async function handleReaderPlayback(message) {
-  const { startTime, endTime } = message;
+  const { startTime, endTime, playbackRate, muted } = message;
   const video = document.querySelector('video');
 
   if (!video) {
     return { success: false, error: '找不到影片元素' };
+  }
+
+  // 套用播放設定
+  if (playbackRate !== undefined) {
+    video.playbackRate = playbackRate;
+  }
+  if (muted !== undefined) {
+    video.muted = muted;
   }
 
   video.currentTime = startTime;
@@ -659,6 +667,25 @@ async function startSmartCapture(config) {
   // 設定開始時間並播放
   video.currentTime = startTime;
   await sleep(300);
+
+  // 加速製作：靜音並設定最高播放速度
+  const originalMuted = video.muted;
+  const originalPlaybackRate = video.playbackRate;
+  video.muted = true;
+
+  // 嘗試最高速度 4x → 3x → 2x
+  const speedsToTry = [4, 3, 2];
+  let actualSpeed = 1;
+  for (const speed of speedsToTry) {
+    video.playbackRate = speed;
+    await sleep(50);  // 等待瀏覽器套用
+    if (Math.abs(video.playbackRate - speed) < 0.1) {
+      actualSpeed = speed;
+      break;
+    }
+  }
+  console.log(`🚀 加速模式：靜音 + ${actualSpeed}倍速`);
+
   video.play();
 
   // 輪詢檢查字幕變化
@@ -668,6 +695,11 @@ async function startSmartCapture(config) {
   console.log(`🤖 智慧擷取：檢測頻率 ${checkIntervalMs}ms, 敏感度 ${sensitivity}%`);
 
   const checkLoop = setInterval(async () => {
+    // 強制保持靜音（防止 YouTube 重設）
+    if (!video.muted) {
+      video.muted = true;
+    }
+
     // 檢查停止條件
     const shouldStop =
       video.paused ||
@@ -694,9 +726,10 @@ async function startSmartCapture(config) {
     // 判斷是否需要截圖
     let shouldCapture = false;
     const subtitleColor = config.subtitleColor || 'white';
+    const minPixelPercent = config.minPixelPercent || 0.5;
 
     // 先檢查是否有字幕文字
-    const textCheck = hasSubtitleText(currentImageData, subtitleColor);
+    const textCheck = hasSubtitleText(currentImageData, subtitleColor, minPixelPercent);
 
     if (!textCheck.hasText) {
       // 無字幕，跳過
@@ -815,7 +848,13 @@ async function startSmartCapture(config) {
  */
 async function finishSmartCapture(videoId, config) {
   const video = document.querySelector('video');
-  if (video) video.pause();
+  if (video) {
+    video.pause();
+    // 恢復正常播放設定
+    video.muted = false;
+    video.playbackRate = 1.0;
+    console.log('🔊 已恢復正常播放設定');
+  }
 
   // 處理未滿一頁的剩餘截圖
   if (captureData.screenshots.length > captureData.pages.length * config.linesPerPage) {
@@ -1005,6 +1044,16 @@ function openViewer(linesPerPage = 5) {
         <button id="prevPage">◄ 上一頁</button>
         <button id="playAudio">▶ 播放</button>
         <button id="nextPage">下一頁 ►</button>
+        <select id="playbackSpeed" style="padding: 8px; font-size: 12px; border-radius: 5px; background: #444; color: white; border: none;">
+          <option value="1">1x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+        <button id="toggleMute" style="background: #666;">🔊</button>
+        <button id="toggleBatchMode" style="background: #9C27B0;">☑ 批次刪除</button>
+        <button id="confirmBatchDelete" style="background: #ff4444; display: none;">🗑 刪除已選</button>
+        <button id="cancelBatchMode" style="background: #666; display: none;">✖ 取消</button>
       </div>
     </div>
   `;
@@ -1016,6 +1065,7 @@ function openViewer(linesPerPage = 5) {
   let isPlaying = false;
   let playCheckInterval = null;
   let pausedTime = null;  // 新增：記錄暫停位置
+  let isBatchMode = false;  // 批次刪除模式
   showPage(currentPageIndex);
 
   // 控制按鈕
@@ -1075,7 +1125,8 @@ function openViewer(linesPerPage = 5) {
     const maxHeight = screenshotCount > 0 ? `calc((100vh - 200px) / ${screenshotCount})` : 'auto';
 
     content.innerHTML = page.screenshots.map((shot, idx) => `
-      <div class="screenshot-item" style="max-height: ${maxHeight};" data-shot-index="${idx}">
+      <div class="screenshot-item ${isBatchMode ? 'batch-mode' : ''}" style="max-height: ${maxHeight};" data-shot-index="${idx}">
+        ${isBatchMode ? `<input type="checkbox" class="batch-checkbox" data-index="${idx}" style="position:absolute;left:10px;top:10px;width:20px;height:20px;z-index:100;cursor:pointer;">` : ''}
         ${shot.upperPreview ? `
           <div class="upper-preview-container" data-index="${idx}" title="點擊新增上方字幕">
             <img src="${shot.upperPreview}" class="upper-preview-thumb" alt="上方預覽">
@@ -1083,6 +1134,7 @@ function openViewer(linesPerPage = 5) {
         ` : ''}
         <img src="${shot.imageData}" alt="字幕 ${shot.time}秒" style="max-height: ${maxHeight}; object-fit: contain;">
         <span class="timestamp">${formatTime(shot.time)}</span>
+        ${!isBatchMode ? `
         <div class="screenshot-controls">
           ${!shot.isUpperSubtitle ? `
             <button class="adj-btn" data-action="addUpper" data-index="${idx}" title="新增上方字幕">⬆ 上方</button>
@@ -1092,6 +1144,7 @@ function openViewer(linesPerPage = 5) {
           ` : ''}
           <button class="adj-btn delete" data-action="delete" data-index="${idx}" title="刪除此行">🗑</button>
         </div>
+        ` : ''}
       </div>
     `).join('');
 
@@ -1136,6 +1189,16 @@ function openViewer(linesPerPage = 5) {
     // 停止之前的播放檢查
     if (playCheckInterval) {
       clearInterval(playCheckInterval);
+    }
+
+    // 套用播放設定
+    const speedSelect = document.getElementById('playbackSpeed');
+    const muteBtn = document.getElementById('toggleMute');
+    if (speedSelect) {
+      video.playbackRate = parseFloat(speedSelect.value) || 1;
+    }
+    if (muteBtn) {
+      video.muted = muteBtn.dataset.muted === 'true';
     }
 
     // 如果有暫停位置且在該頁範圍內，從暫停位置繼續
@@ -1401,6 +1464,79 @@ function openViewer(linesPerPage = 5) {
       console.error('儲存失敗:', error);
     }
   }
+
+  // 批次刪除模式
+  function enterBatchMode() {
+    isBatchMode = true;
+    document.getElementById('toggleBatchMode').style.display = 'none';
+    document.getElementById('confirmBatchDelete').style.display = 'inline-block';
+    document.getElementById('cancelBatchMode').style.display = 'inline-block';
+    showPage(currentPageIndex);
+  }
+
+  function exitBatchMode() {
+    isBatchMode = false;
+    document.getElementById('toggleBatchMode').style.display = 'inline-block';
+    document.getElementById('confirmBatchDelete').style.display = 'none';
+    document.getElementById('cancelBatchMode').style.display = 'none';
+    showPage(currentPageIndex);
+  }
+
+  async function executeBatchDelete() {
+    const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
+    const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+
+    if (selectedIndices.length === 0) {
+      alert('請先勾選要刪除的截圖');
+      return;
+    }
+
+    const page = captureData.pages[currentPageIndex];
+    if (selectedIndices.length >= page.screenshots.length) {
+      alert('無法刪除所有截圖，每頁至少需保留一張');
+      return;
+    }
+
+    // 從後向前刪除，避免索引變化
+    const sortedIndices = selectedIndices.sort((a, b) => b - a);
+
+    // 刪除選中的截圖
+    for (const idx of sortedIndices) {
+      page.screenshots.splice(idx, 1);
+    }
+
+    // 更新時間範圍
+    page.startTime = page.screenshots[0].time;
+    page.endTime = page.screenshots[page.screenshots.length - 1].time;
+
+    // 儲存
+    await saveCurrentResult();
+
+    // 退出批次模式
+    exitBatchMode();
+
+    console.log(`✅ 已刪除 ${sortedIndices.length} 張截圖`);
+  }
+
+  // 批次刪除按鈕事件
+  document.getElementById('toggleBatchMode').addEventListener('click', enterBatchMode);
+  document.getElementById('confirmBatchDelete').addEventListener('click', executeBatchDelete);
+  document.getElementById('cancelBatchMode').addEventListener('click', exitBatchMode);
+
+  // 靜音開關
+  document.getElementById('toggleMute').addEventListener('click', () => {
+    const btn = document.getElementById('toggleMute');
+    const isMuted = btn.dataset.muted === 'true';
+    if (isMuted) {
+      btn.dataset.muted = 'false';
+      btn.textContent = '🔊';
+      btn.style.background = '#666';
+    } else {
+      btn.dataset.muted = 'true';
+      btn.textContent = '🔇';
+      btn.style.background = '#ff9800';
+    }
+  });
 
   function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);

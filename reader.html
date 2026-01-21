@@ -105,6 +105,7 @@
                 transform: translateX(100%);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
@@ -196,6 +197,31 @@
 
         .adj-btn.play:hover {
             background: #66BB6A;
+        }
+
+        /* 批次刪除 checkbox */
+        .batch-checkbox {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #ff4444;
+            z-index: 20;
+        }
+
+        .batch-checkbox:checked+img {
+            opacity: 0.5;
+            outline: 2px solid #ff4444;
+        }
+
+        .batch-mode .screenshot-item {
+            cursor: pointer;
+        }
+
+        .batch-mode .screenshot-controls {
+            display: none !important;
         }
 
         /* 上方字幕預覽縮圖 */
@@ -330,7 +356,18 @@
             <button id="prevPage" disabled>◄ 上一頁</button>
             <button id="playAudio">▶ 播放</button>
             <button id="nextPage" disabled>下一頁 ►</button>
+            <select id="playbackSpeed"
+                style="padding: 8px; font-size: 12px; border-radius: 5px; background: #444; color: white; border: none;">
+                <option value="1">1x 速度</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+            </select>
+            <button id="toggleMute" style="background: #666;">🔊 有聲</button>
             <button id="openYouTube">📺 YouTube</button>
+            <button id="toggleBatchMode" style="background: #9C27B0;">☑ 批次刪除</button>
+            <button id="confirmBatchDelete" style="background: #ff4444; display: none;">🗑 刪除已選</button>
+            <button id="cancelBatchMode" style="background: #666; display: none;">✖ 取消</button>
             <span class="waiting" id="waitingMsg" style="display:none;">等待...</span>
         </div>
     </div>

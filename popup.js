@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = {
   checkInterval: 200,
   sensitivity: 30,
   subtitleColor: 'white',
+  minPixelPercent: 0.5,
   linesPerPage: 5,
   totalPages: 'all',
   subtitleHeight: 15,
@@ -48,6 +49,8 @@ async function loadSettings() {
   document.getElementById('sensitivity').value = settings.sensitivity || 30;
   document.getElementById('sensitivityValue').textContent = (settings.sensitivity || 30) + '%';
   document.getElementById('subtitleColor').value = settings.subtitleColor || 'white';
+  document.getElementById('minPixelPercent').value = settings.minPixelPercent || 0.5;
+  document.getElementById('minPixelValue').textContent = (settings.minPixelPercent || 0.5) + '%';
   document.getElementById('linesPerPage').value = settings.linesPerPage;
   document.getElementById('totalPages').value = settings.totalPages;
   document.getElementById('subtitleHeight').value = settings.subtitleHeight;
@@ -69,6 +72,7 @@ async function saveSettings() {
     checkInterval: parseInt(document.getElementById('checkInterval').value),
     sensitivity: parseInt(document.getElementById('sensitivity').value),
     subtitleColor: document.getElementById('subtitleColor').value,
+    minPixelPercent: parseFloat(document.getElementById('minPixelPercent').value),
     linesPerPage: parseInt(document.getElementById('linesPerPage').value),
     totalPages: document.getElementById('totalPages').value,
     subtitleHeight: parseInt(document.getElementById('subtitleHeight').value),
@@ -121,6 +125,12 @@ document.getElementById('captureMode').addEventListener('change', (e) => {
 // 敏感度滑軸即時更新
 document.getElementById('sensitivity').addEventListener('input', (e) => {
   document.getElementById('sensitivityValue').textContent = e.target.value + '%';
+  saveSettings();
+});
+
+// 字幕像素閾值滑軸即時更新
+document.getElementById('minPixelPercent').addEventListener('input', (e) => {
+  document.getElementById('minPixelValue').textContent = e.target.value + '%';
   saveSettings();
 });
 
@@ -208,6 +218,7 @@ document.getElementById('startCapture').addEventListener('click', async () => {
   const checkInterval = parseInt(document.getElementById('checkInterval').value);
   const sensitivity = parseInt(document.getElementById('sensitivity').value);
   const subtitleColor = document.getElementById('subtitleColor').value;
+  const minPixelPercent = parseFloat(document.getElementById('minPixelPercent').value);
 
   chrome.tabs.sendMessage(tab.id, {
     action: captureMode === 'smart' ? 'startSmartCapture' : 'startCapture',
@@ -218,6 +229,7 @@ document.getElementById('startCapture').addEventListener('click', async () => {
       checkInterval,
       sensitivity,
       subtitleColor,
+      minPixelPercent,
       linesPerPage,
       totalPages,
       subtitleHeight,
