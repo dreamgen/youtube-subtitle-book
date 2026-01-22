@@ -61,7 +61,7 @@ async function loadSettings() {
     // Update displays
     document.getElementById('intervalValue').textContent = parseFloat(settings.captureInterval).toFixed(1) + ' 秒';
     document.getElementById('sensitivityValue').textContent = settings.sensitivity + '%';
-    // document.getElementById('minPixelValue').textContent = settings.minPixelPercent + '%';
+    document.getElementById('minPixelValue').textContent = settings.minPixelPercent + '%';
 
     updateCaptureMode(settings.captureMode);
 }
@@ -94,6 +94,10 @@ document.getElementById('captureInterval').addEventListener('input', (e) => {
 });
 document.getElementById('sensitivity').addEventListener('input', (e) => {
     document.getElementById('sensitivityValue').textContent = e.target.value + '%';
+    saveSettings();
+});
+document.getElementById('minPixelPercent').addEventListener('input', (e) => {
+    document.getElementById('minPixelValue').textContent = e.target.value + '%';
     saveSettings();
 });
 
@@ -290,7 +294,66 @@ document.getElementById('deleteResult').addEventListener('click', async () => {
     await chrome.storage.local.remove([`segment_${key}`]);
     await chrome.storage.local.set({ savedSegments: segments });
     await loadSavedSegments();
+    await loadSavedSegments();
     showToast('已刪除');
+});
+
+// Export PDF
+document.getElementById('exportPdf').addEventListener('click', async () => {
+    const key = document.getElementById('savedResults').value;
+    if (!key) return showToast('請選擇段落', 'error');
+
+    showToast('正在產生 PDF...');
+    const btn = document.getElementById('exportPdf');
+    btn.disabled = true;
+
+    try {
+        const result = await chrome.storage.local.get([`segment_${key}`]);
+        const data = result[`segment_${key}`];
+        if (!data) throw new Error('找不到資料');
+
+        const pdf = new jspdf.jsPDF();
+        let pageHeight = pdf.internal.pageSize.getHeight();
+        let pageWidth = pdf.internal.pageSize.getWidth();
+        let y = 10;
+
+        // Title
+        pdf.setFontSize(16);
+        pdf.text(data.videoTitle || 'Subtitle Book', 10, y);
+        y += 10;
+
+        // Content
+        data.pages.forEach((page, pIdx) => {
+            if (pIdx > 0) {
+                pdf.addPage();
+                y = 10;
+            }
+
+            page.screenshots.forEach((shot) => {
+                if (y > pageHeight - 40) {
+                    pdf.addPage();
+                    y = 10;
+                }
+
+                const imgData = shot.imageData;
+                const imgProps = pdf.getImageProperties(imgData);
+                const imgHeight = (pageWidth - 20) * (imgProps.height / imgProps.width);
+
+                pdf.addImage(imgData, 'JPEG', 10, y, pageWidth - 20, imgHeight);
+                pdf.setFontSize(10);
+                pdf.text(formatTime(shot.time), 10, y + imgHeight + 5);
+
+                y += imgHeight + 15;
+            });
+        });
+
+        pdf.save(`${data.videoTitle || 'subtitle_book'}.pdf`);
+        showToast('PDF 下載完成');
+    } catch (e) {
+        showToast('匯出失敗: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
 });
 
 // --- Dialogs & Toasts ---

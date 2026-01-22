@@ -305,6 +305,29 @@
                         <label>靈敏度 <span id="sensitivityValue" class="slider-value">30%</span></label>
                         <input type="range" id="sensitivity" min="2" max="50" step="1" value="30">
                     </div>
+
+                    <div class="input-group">
+                        <label>最小像素比例 <span id="minPixelValue" class="slider-value">0.5%</span></label>
+                        <input type="range" id="minPixelPercent" min="0.1" max="5" step="0.1" value="0.5">
+                    </div>
+
+                    <div class="input-group">
+                        <label>檢測頻率 (ms)</label>
+                        <select id="checkInterval">
+                            <option value="100">100 ms (快)</option>
+                            <option value="200" selected>200 ms (標準)</option>
+                            <option value="500">500 ms (省電)</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>字幕顏色</label>
+                        <select id="subtitleColor">
+                            <option value="white" selected>白色</option>
+                            <option value="yellow">黃色</option>
+                            <option value="detect">自動偵測</option>
+                        </select>
+                    </div>
                 </div>
 
                 <button id="previewButton" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">
@@ -327,7 +350,11 @@
                 <button id="loadResult" class="btn btn-secondary" style="flex:1;">載入</button>
                 <button id="deleteResult" class="btn btn-danger" style="flex:1;">刪除</button>
             </div>
+            <button id="exportPdf" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                📄 匯出 PDF
+            </button>
         </div>
+    </div>
     </div>
 
     <!-- Status Overlay (Shows during capture) -->
@@ -363,13 +390,6 @@
 
     <!-- Hidden elements required by original JS to avoid errors if not refactored yet -->
     <div style="display:none;">
-        <select id="checkInterval">
-            <option value="200">200</option>
-        </select>
-        <select id="subtitleColor">
-            <option value="white">white</option>
-        </select>
-        <input type="range" id="minPixelPercent" value="0.5">
         <div id="exportSection"></div> <!-- Placeholder if we remove it temporarily or relocate -->
     </div>
 

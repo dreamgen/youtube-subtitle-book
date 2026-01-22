@@ -126,7 +126,8 @@ function showPage(pageIndex) {
     // "Optimized Reader Typography" -> "Immersive Reading". 
     // Let's keep max-height logic for now to ensure ebook feel, or relax it.
     // Making it fit screen is good for "Pagination".
-    const maxHeight = `calc((100vh - 60px) / ${screenshotCount})`; // Tighter fit
+    // Use auto to respect aspect ratio and allow scrolling for seamless effect
+    const maxHeight = 'auto';
 
     content.innerHTML = page.screenshots.map((shot, idx) => `
         <div class="screenshot-item" style="max-height: ${maxHeight};" data-shot-index="${idx}">
