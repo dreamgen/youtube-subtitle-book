@@ -1,168 +1,229 @@
-# 專案檔案清單
+# 專案檔案清單 V2.0
 
 ## 📂 完整檔案結構
 
 ```
-youtube-subtitle-book/
+youtube-subtitle-book-v2/
 │
-├── 📘 文件檔案 (Documentation)
-│   ├── START_HERE.md          (4.6 KB) - 🌟 從這裡開始！
-│   ├── QUICK_START.md         (2.6 KB) - 快速開始指南
-│   ├── README.md              (4.7 KB) - 完整說明文件
-│   ├── INSTALLATION.md        (4.3 KB) - 安裝疑難排解
-│   ├── TEST_CHECKLIST.md      (4.7 KB) - 測試檢查清單
-│   ├── PROJECT_OVERVIEW.md    (5.9 KB) - 技術架構說明
-│   └── FILES.md               (本檔案) - 檔案清單
+├── 📱 核心配置
+│   ├── manifest.json          (1.0 KB)  - Chrome 擴充功能配置（V3）
+│   └── background.js          (1.1 KB)  - 背景 Service Worker
 │
-├── ⚙️ 核心程式碼 (Core Code)
-│   ├── manifest.json          (745 B)  - Chrome擴充功能配置
-│   ├── popup.html             (2.5 KB) - 控制面板UI
-│   ├── popup.js               (2.3 KB) - 控制面板邏輯
-│   ├── content.js             (6.5 KB) - 核心功能（截圖、組合、閱讀器）
-│   └── content.css            (2.4 KB) - 閱讀器樣式
+├── 🎛️ 側邊面板 (Side Panel)
+│   ├── sidepanel.html        (15.7 KB)  - 側邊面板 UI
+│   ├── sidepanel.js          (20.2 KB)  - 側邊面板邏輯
+│   └── theme.css              (2.4 KB)  - 共用主題樣式
 │
-├── 🛠️ 工具檔案 (Tools)
-│   └── create-icons.html      (2.8 KB) - 圖示產生工具
+├── 📷 核心功能
+│   ├── content.js            (91.3 KB)  - 截圖核心功能
+│   ├── content.css           (10.2 KB)  - 影片頁面樣式
+│   └── subtitleDetection.js   (7.4 KB)  - 智慧字幕偵測
 │
-└── 🖼️ 圖示檔案 (Icons) - 需要自行產生
-    ├── icon16.png             (需產生) - 16x16 圖示
-    ├── icon48.png             (需產生) - 48x48 圖示
-    └── icon128.png            (需產生) - 128x128 圖示
+├── 📖 閱讀器
+│   ├── reader.html            (5.9 KB)  - 閱讀器頁面
+│   ├── reader.js             (32.4 KB)  - 閱讀器邏輯
+│   └── reader.css            (11.5 KB)  - 閱讀器樣式
+│
+├── 📚 書庫管理
+│   ├── library.html           (9.3 KB)  - 書庫管理 UI
+│   ├── library.js            (30.6 KB)  - 書庫管理邏輯
+│   ├── all-libraries.html     (7.9 KB)  - 全部書庫 UI
+│   └── all-libraries.js      (13.6 KB)  - 全部書庫邏輯
+│
+├── 📄 外部庫
+│   └── jspdf.umd.min.js     (364.5 KB)  - PDF 生成庫
+│
+├── 🖼️ 圖示檔案
+│   ├── icon16.png             (253 B)   - 16x16 圖示
+│   ├── icon48.png             (570 B)   - 48x48 圖示
+│   └── icon128.png            (1.7 KB)  - 128x128 圖示
+│
+├── 🛠️ 工具
+│   ├── create-icons.html      (2.9 KB)  - 圖示產生工具
+│   └── test-delete-button.js  (3.3 KB)  - 測試腳本
+│
+├── 📚 使用文件
+│   ├── START_HERE.md          (4.7 KB)  - 🌟 專案入口
+│   ├── QUICK_START.md         (2.7 KB)  - 5分鐘快速開始
+│   ├── README.md              (7.2 KB)  - 完整說明
+│   ├── INSTALLATION.md        (4.4 KB)  - 安裝指南
+│   └── PREVIEW_FEATURE.md     (7.0 KB)  - 預覽功能說明
+│
+├── 📝 開發文件
+│   ├── PROJECT_OVERVIEW.md    (7.1 KB)  - 技術架構
+│   ├── FILES.md               (本檔案)  - 檔案清單
+│   ├── WORKFLOW.md           (18.7 KB)  - 流程圖
+│   ├── COMPLETED_FEATURES.md  (5.1 KB)  - 已完成功能
+│   └── CHANGELOG.md           (5.8 KB)  - 版本更新日誌
+│
+├── 🔧 除錯文件
+│   ├── DEBUG_GUIDE.md         (6.0 KB)  - 除錯指南
+│   ├── CURRENT_STATUS.md      (4.5 KB)  - 當前狀態
+│   ├── TEST_CHECKLIST.md      (4.8 KB)  - 測試清單
+│   └── QUICK_TEST_GUIDE.md    (5.8 KB)  - 快速測試指南
+│
+└── 📊 歷史修復文件
+    ├── BUG_FIX_SUMMARY.md     (7.2 KB)
+    ├── DELETE_BUTTON_FIX.md   (7.8 KB)
+    ├── DELETE_BUTTON_TEST.md  (6.2 KB)
+    ├── DEBUG_DELETE_BUTTON.md (7.0 KB)
+    └── STORAGE_SYNC_FIX.md    (8.3 KB)
 ```
 
-**總大小**: ~33 KB (不含圖示)
+**總計：41 個檔案**
 
 ---
 
 ## 📄 檔案功能說明
 
-### 文件檔案
-
-#### START_HERE.md 🌟
-- **用途**: 專案入口，快速導航
-- **適合**: 第一次接觸專案的人
-- **內容**: 快速開始步驟、文件索引、功能預覽
-
-#### QUICK_START.md
-- **用途**: 5分鐘快速教學
-- **適合**: 想立即使用的人
-- **內容**: 安裝步驟、基本使用、測試建議
-
-#### README.md
-- **用途**: 完整說明文件
-- **適合**: 想全面了解功能的人
-- **內容**: 功能特色、使用方式、技術原理、疑難排解
-
-#### INSTALLATION.md
-- **用途**: 詳細安裝指南
-- **適合**: 遇到安裝問題的人
-- **內容**: 多種安裝方法、疑難排解、驗證步驟
-
-#### TEST_CHECKLIST.md
-- **用途**: 功能測試清單
-- **適合**: 想驗證功能是否正常的人
-- **內容**: 完整測試項目、檢查清單、結果記錄表
-
-#### PROJECT_OVERVIEW.md
-- **用途**: 技術架構文件
-- **適合**: 開發者、想修改程式的人
-- **內容**: 架構設計、資料結構、擴展方向、技術細節
-
----
-
-### 核心程式碼
+### 核心配置
 
 #### manifest.json
 ```json
-Chrome擴充功能的配置檔案
+Chrome 擴充功能的配置檔案
 定義：
-- 擴充功能名稱和版本
-- 權限需求
+- 擴充功能名稱和版本 (v2.0.0)
+- 權限需求 (storage, sidePanel, tabs, unlimitedStorage)
+- Service Worker (background.js)
+- Side Panel 路徑
 - Content Scripts
-- 圖示檔案路徑
 ```
 
-#### popup.html
-```html
-控制面板的UI結構
-包含：
-- 參數設定表單
-- 按鈕
-- 進度條
-- 狀態訊息區域
-```
-
-#### popup.js
+#### background.js
 ```javascript
-控制面板的邏輯
+背景 Service Worker
 負責：
-- 接收使用者輸入
-- 發送訊息到content script
-- 顯示進度更新
-- 開啟閱讀器按鈕控制
+- Side Panel 啟動控制
+- 擴充功能圖示點擊處理
+- 跨頁面訊息中繼
 ```
+
+---
+
+### 側邊面板 (Side Panel)
+
+#### sidepanel.html
+```html
+側邊面板的 UI 結構
+包含：
+- 基本參數設定（每頁行數、範圍、開始時間）
+- 進階設定手風琴（字幕高度、智慧偵測選項）
+- 書庫管理區域
+- 進度顯示區
+- 固定底部按鈕列
+```
+
+#### sidepanel.js
+```javascript
+側邊面板的邏輯
+負責：
+- 設定參數管理
+- 開始/停止擷取控制
+- 進度更新處理
+- 書庫載入與刪除
+- 開啟書庫管理器
+```
+
+#### theme.css
+```css
+共用主題樣式
+定義：
+- 深色主題變數
+- 按鈕樣式
+- 表單元素樣式
+- 卡片與容器
+```
+
+---
+
+### 核心功能
 
 #### content.js ⭐ 核心
 ```javascript
-主要功能實作
+主要功能實作（最大檔案）
 包含：
-- startCapture() - 截圖主流程
+- startCapture() - 定時擷取流程
+- startSmartCapture() - 智慧偵測擷取
 - createPages() - 組合頁面
-- openViewer() - 開啟閱讀器
-- 資料儲存和管理
+- openViewer() - 嵌入式閱讀器
+- handleReaderAdjustment() - 編輯處理
+- syncToAllStorage() - 資料同步
 ```
 
-**關鍵函數**：
-- `startCapture(config)` - 控制整個截圖流程
-- `createPages(linesPerPage)` - 將截圖組合成頁面
-- `openViewer()` - 建立並顯示全螢幕閱讀器
-- `updateProgress(progress, message)` - 更新進度
+#### subtitleDetection.js
+```javascript
+智慧字幕偵測模組
+包含：
+- 像素差異比對
+- 字幕顏色過濾
+- 變化閾值判斷
+```
 
 #### content.css
 ```css
-閱讀器的視覺樣式
+影片頁面樣式
 定義：
-- 全螢幕覆蓋層樣式
-- 閱讀器容器布局
-- 按鈕樣式
-- 捲動條樣式
+- 預覽視窗樣式
+- 嵌入式閱讀器樣式
+- 進度指示器
 ```
 
 ---
 
-### 工具檔案
+### 閱讀器
 
-#### create-icons.html
+#### reader.html
 ```html
-獨立的圖示產生工具
-功能：
-- 產生三個尺寸的PNG圖示
-- 紅色背景 + 白色"YT"文字
-- 自動下載檔案
-- 預覽功能
+獨立閱讀器頁面
+包含：
+- 頁面顯示容器
+- 導航控制列
+- 編輯工具列
+- Toast 通知區
 ```
 
-**使用方式**：
-直接用瀏覽器開啟，點擊按鈕即可產生圖示
+#### reader.js
+```javascript
+閱讀器邏輯
+包含：
+- showPage() - 頁面渲染
+- adjustScreenshot() - 截圖編輯
+- playPageAudio() - 音訊播放
+- openTimeScrubberModal() - 時間調整
+```
+
+#### reader.css
+```css
+閱讀器樣式
+定義：
+- 全螢幕黑色背景
+- 截圖列表布局
+- 控制按鈕樣式
+- 動畫效果
+```
 
 ---
 
-### 圖示檔案（需產生）
+### 書庫管理
 
-#### icon16.png
-- **尺寸**: 16x16 像素
-- **用途**: 擴充功能工具列小圖示
-- **格式**: PNG
+#### library.html / library.js
+```javascript
+單一影片書庫管理
+功能：
+- 載入該影片所有段落
+- 搜尋與排序
+- 批次選取與操作
+- PDF/HTML 導出
+```
 
-#### icon48.png
-- **尺寸**: 48x48 像素
-- **用途**: 擴充功能管理頁面
-- **格式**: PNG
-
-#### icon128.png
-- **尺寸**: 128x128 像素
-- **用途**: Chrome Web Store（如果發布）
-- **格式**: PNG
+#### all-libraries.html / all-libraries.js
+```javascript
+全部書庫管理
+功能：
+- 跨影片段落管理
+- 資料導入/導出
+- 批次刪除
+```
 
 ---
 
@@ -170,97 +231,97 @@ Chrome擴充功能的配置檔案
 
 ```
 manifest.json
-    ├─→ popup.html
-    │       └─→ popup.js
     │
-    ├─→ content.js
-    │       └─→ content.css
+    ├──► background.js
     │
-    └─→ icon*.png (需產生)
+    ├──► sidepanel.html
+    │       ├──► sidepanel.js
+    │       ├──► theme.css
+    │       └──► jspdf.umd.min.js
+    │
+    ├──► content.js
+    │       ├──► subtitleDetection.js
+    │       └──► content.css
+    │
+    └──► reader.html
+            ├──► reader.js
+            └──► reader.css
 
-create-icons.html (獨立工具，無依賴)
+library.html ──► library.js
+all-libraries.html ──► all-libraries.js
 ```
 
 ---
 
 ## 📊 檔案重要性排序
 
-### 🔴 必要檔案（缺一不可）
+### 🔴 必要檔案（核心運作）
 1. manifest.json - 擴充功能配置
-2. content.js - 核心功能
-3. popup.html - 控制面板
-4. popup.js - 控制邏輯
-5. icon*.png - 圖示（需產生）
+2. background.js - 背景服務
+3. sidepanel.html/js - 控制介面
+4. content.js - 核心截圖功能
+5. reader.html/js - 閱讀器
 
-### 🟡 重要檔案（影響體驗）
-6. content.css - 閱讀器樣式
-7. START_HERE.md - 入門指南
+### 🟡 重要檔案（完整功能）
+6. subtitleDetection.js - 智慧偵測
+7. library.html/js - 書庫管理
+8. jspdf.umd.min.js - PDF 導出
+9. theme.css - 共用樣式
+10. reader.css/content.css - 樣式
 
-### 🟢 輔助檔案（幫助理解）
-8. QUICK_START.md - 快速開始
-9. README.md - 完整說明
-10. create-icons.html - 圖示工具
+### 🟢 輔助檔案（幫助使用）
+11. 使用文件 (README, QUICK_START 等)
+12. 開發文件 (PROJECT_OVERVIEW 等)
+13. 圖示檔案
 
-### ⚪ 參考檔案（進階使用）
-11. INSTALLATION.md - 安裝疑難排解
-12. TEST_CHECKLIST.md - 測試清單
-13. PROJECT_OVERVIEW.md - 技術文件
-14. FILES.md - 本檔案
+### ⚪ 參考檔案（歷史記錄）
+14. 除錯文件
+15. 歷史修復文件
 
 ---
 
 ## 📝 修改建議
 
-### 想調整UI樣式？
-→ 修改 `content.css` 和 `popup.html`
+### 想調整 UI 樣式？
+→ 修改 `theme.css`（共用）或個別 CSS 檔案
 
 ### 想改變截圖邏輯？
-→ 修改 `content.js` 中的 `startCapture()` 函數
+→ 修改 `content.js` 中的 `startCapture()` 或 `startSmartCapture()`
 
-### 想調整參數選項？
-→ 修改 `popup.html` 中的 `<select>` 選項
+### 想調整智慧偵測參數？
+→ 修改 `subtitleDetection.js`
+
+### 想新增書庫功能？
+→ 修改 `library.js`
 
 ### 想改變閱讀器布局？
-→ 修改 `content.js` 中的 `openViewer()` 函數
-
----
-
-## 🚀 快速定位
-
-**我想...**
-
-- 了解專案 → START_HERE.md
-- 立即使用 → QUICK_START.md
-- 解決安裝問題 → INSTALLATION.md
-- 測試功能 → TEST_CHECKLIST.md
-- 修改程式碼 → PROJECT_OVERVIEW.md + content.js
-- 調整樣式 → content.css
-- 產生圖示 → create-icons.html
+→ 修改 `reader.js` 和 `reader.css`
 
 ---
 
 ## ✅ 完整性檢查
 
-使用此清單確認所有檔案都已準備好：
+使用此清單確認所有核心檔案：
 
 - [ ] manifest.json
-- [ ] popup.html
-- [ ] popup.js
+- [ ] background.js
+- [ ] sidepanel.html
+- [ ] sidepanel.js
+- [ ] theme.css
 - [ ] content.js
 - [ ] content.css
-- [ ] create-icons.html
-- [ ] START_HERE.md
-- [ ] QUICK_START.md
-- [ ] README.md
-- [ ] INSTALLATION.md
-- [ ] TEST_CHECKLIST.md
-- [ ] PROJECT_OVERVIEW.md
-- [ ] FILES.md
-- [ ] icon16.png (需產生)
-- [ ] icon48.png (需產生)
-- [ ] icon128.png (需產生)
+- [ ] subtitleDetection.js
+- [ ] reader.html
+- [ ] reader.js
+- [ ] reader.css
+- [ ] library.html
+- [ ] library.js
+- [ ] jspdf.umd.min.js
+- [ ] icon16.png
+- [ ] icon48.png
+- [ ] icon128.png
 
-**共 16 個檔案**（13個已有 + 3個需產生）
+**共 17 個核心檔案**
 
 ---
 

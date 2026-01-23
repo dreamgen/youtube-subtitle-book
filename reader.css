@@ -79,6 +79,39 @@ body {
     /* Seamless */
 }
 
+/* Page transition animations */
+.content.fade-out {
+    animation: fadeOut 0.2s ease-out forwards;
+}
+
+.content.fade-in {
+    animation: fadeIn 0.3s ease-in forwards;
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 /* Screenshot Items */
 .screenshot-item {
     position: relative;
@@ -94,24 +127,28 @@ body {
     border-bottom: 1px solid #111;
 }
 
-/* Hover Tools for Screenshot */
+/* Screenshot Controls - Hover to Show, Fixed Right Position */
 .screenshot-controls {
     position: absolute;
-    right: 10px;
-    top: 10px;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
     display: flex;
     gap: 5px;
     opacity: 0;
-    transition: opacity 0.2s;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    padding: 4px;
-    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    padding: 8px;
+    border-radius: 8px;
     z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: opacity 0.2s ease;
+    pointer-events: none;
 }
 
 .screenshot-item:hover .screenshot-controls {
     opacity: 1;
+    pointer-events: auto;
 }
 
 .adj-btn {
@@ -132,49 +169,60 @@ body {
 
 .timestamp {
     position: absolute;
-    left: 10px;
-    bottom: 10px;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 2px 6px;
+    right: 10px;
+    top: 10px;
+    background: rgba(43, 166, 64, 0.15);
+    backdrop-filter: blur(4px);
+    padding: 3px 8px;
     border-radius: 4px;
-    font-size: 10px;
-    color: #fff;
-    opacity: 0.7;
+    font-size: 11px;
+    color: #2BA640;
+    font-weight: 600;
     font-family: monospace;
     pointer-events: none;
+    border: 1px solid rgba(43, 166, 64, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Floating Control Bar */
+/* Floating Control Bar - Vertical Right Side */
 .floating-controls {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(31, 31, 31, 0.9);
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(31, 31, 31, 0.95);
     backdrop-filter: blur(10px);
     border: 1px solid var(--border-color);
-    padding: 8px 16px;
-    border-radius: 32px;
+    padding: 16px 10px;
+    border-radius: 24px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     z-index: 100;
-    transition: opacity 0.3s;
-}
-
-.floating-controls:hover {
+    transition: opacity 0.5s ease, transform 0.5s ease;
     opacity: 1;
 }
 
-/* Often hidden when inactive? For now just always visible or fade on idle */
+.floating-controls.hidden-auto {
+    opacity: 0;
+    transform: translateY(-50%) translateX(20px);
+    pointer-events: none;
+}
+
+.floating-controls:hover {
+    opacity: 1 !important;
+    transform: translateY(-50%) translateX(0) !important;
+    pointer-events: auto !important;
+}
 
 .ctrl-btn {
     background: transparent;
     border: none;
     color: var(--text-secondary);
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     cursor: pointer;
     display: flex;
@@ -184,7 +232,7 @@ body {
 }
 
 .ctrl-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
     color: var(--text-primary);
     transform: scale(1.1);
 }
@@ -197,13 +245,14 @@ body {
 
 .ctrl-btn.active {
     color: var(--primary-color);
-    background: rgba(255, 0, 0, 0.1);
+    background: rgba(255, 0, 0, 0.15);
 }
 
 .divider {
-    width: 1px;
-    height: 20px;
+    width: 80%;
+    height: 1px;
     background: var(--border-color);
+    margin: 4px 0;
 }
 
 /* Toast */
@@ -241,7 +290,302 @@ body {
     }
 }
 
+/* Upper Preview Thumbnail - Left Center Aligned */
+.upper-preview-container {
+    position: absolute;
+    top: 50%;
+    left: 15px;
+    transform: translateY(-50%);
+    max-width: 200px;
+    max-height: 120px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 6px;
+    border-radius: 6px;
+    z-index: 15;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.upper-preview-container.has-upper-subtitle {
+    border-color: rgba(76, 175, 80, 0.6);
+    background: rgba(27, 94, 32, 0.9);
+}
+
+.upper-preview-container:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-50%) scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+
+.upper-preview-container.has-upper-subtitle:hover {
+    border-color: rgba(76, 175, 80, 0.9);
+}
+
+.upper-subtitle-indicator {
+    font-size: 10px;
+    color: #81c784;
+    margin-bottom: 4px;
+    font-weight: bold;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.upper-preview-thumb {
+    max-width: 100%;
+    max-height: 100%;
+    height: auto;
+    display: block;
+    opacity: 1;
+    border-radius: 3px;
+}
+
+/* Batch Mode Checkbox */
+.batch-checkbox {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 20px;
+    height: 20px;
+    z-index: 20;
+    cursor: pointer;
+}
+
+/* Loading State */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* Waiting Message */
+.waiting {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(31, 31, 31, 0.9);
+    backdrop-filter: blur(10px);
+    padding: 8px 16px;
+    border-radius: 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    z-index: 99;
+}
+
+/* Status Badge */
+.status {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.status.done {
+    color: var(--success-color);
+}
+
 /* Utils */
 .hidden {
     display: none !important;
+}
+
+/* Timeline Scrubber Modal */
+.time-scrubber-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+}
+
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #1F1F1F;
+    border-radius: 12px;
+    padding: 0;
+    min-width: 600px;
+    max-width: 80%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #3F3F3F;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #FFFFFF;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    color: #AAAAAA;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+/* Preview Strip */
+.preview-strip {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 10px 0;
+    margin-bottom: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: #3F3F3F #1F1F1F;
+}
+
+.preview-strip::-webkit-scrollbar {
+    height: 6px;
+}
+
+.preview-strip::-webkit-scrollbar-track {
+    background: #1F1F1F;
+}
+
+.preview-strip::-webkit-scrollbar-thumb {
+    background: #3F3F3F;
+    border-radius: 3px;
+}
+
+.preview-frame {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.5;
+    transition: opacity 0.2s ease, transform 0.2s ease, width 0.2s ease;
+    cursor: pointer;
+}
+
+.preview-frame:hover {
+    transform: scale(1.05);
+}
+
+.preview-frame img {
+    width: 40px;
+    /* 縮小基礎寬度 */
+    height: auto;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+/* 當前選中的幀 - 最大尺寸 */
+.preview-frame.active img {
+    width: 100px;
+    /* 原始比例更大 */
+    border-color: #FF0000;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+
+.preview-frame.active {
+    opacity: 1;
+}
+
+.frame-time {
+    font-size: 10px;
+    color: #AAAAAA;
+    font-family: monospace;
+}
+
+/* Scrubber Controls */
+.scrubber-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#timeScrubber {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(to right, #3EA6FF 0%, #3EA6FF 50%, #3F3F3F 50%, #3F3F3F 100%);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+#timeScrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    cursor: grab;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    transition: transform 0.1s;
+}
+
+#timeScrubber::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    transform: scale(1.2);
+}
+
+#timeScrubber::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    cursor: grab;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+#timeScrubber::-moz-range-thumb:active {
+    cursor: grabbing;
+    transform: scale(1.2);
+}
+
+.time-display {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #FFFFFF;
+    font-family: monospace;
 }

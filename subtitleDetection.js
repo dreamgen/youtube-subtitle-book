@@ -18,34 +18,46 @@ function getSubtitleImageData(canvas) {
  * @param {ImageData} imgData1 - 第一張圖像的像素資料
  * @param {ImageData} imgData2 - 第二張圖像的像素資料
  * @param {number} colorThreshold - 顏色差異閾值 (預設 30)
- * @returns {number} - 差異百分比 (0-100)
+ * @param {number} centerWidthPercent - 中央檢測區域寬度百分比 (預設 15，表示中間 15%)
+ * @returns {number} - 中央區域差異百分比 (0-100)
  */
-function calculatePixelDifference(imgData1, imgData2, colorThreshold = 30) {
+function calculatePixelDifference(imgData1, imgData2, colorThreshold = 30, centerWidthPercent = 15) {
     const pixels1 = imgData1.data;
     const pixels2 = imgData2.data;
 
     // 確保兩張圖像大小相同
-    if (pixels1.length !== pixels2.length) {
+    if (pixels1.length !== pixels2.length || imgData1.width !== imgData2.width) {
         console.warn('圖像大小不同，無法比較');
         return 100; // 視為完全不同
     }
 
+    const width = imgData1.width;
+    const height = imgData1.height;
+
+    // 計算中央區域的範圍
+    const centerWidth = Math.floor(width * (centerWidthPercent / 100));
+    const centerX = Math.floor((width - centerWidth) / 2);
+
     let diffCount = 0;
-    const totalPixels = pixels1.length / 4; // RGBA 每個像素 4 個值
+    const centerPixels = centerWidth * height;
 
-    for (let i = 0; i < pixels1.length; i += 4) {
-        // 計算 RGB 差異（忽略 Alpha 通道）
-        const rDiff = Math.abs(pixels1[i] - pixels2[i]);
-        const gDiff = Math.abs(pixels1[i + 1] - pixels2[i + 1]);
-        const bDiff = Math.abs(pixels1[i + 2] - pixels2[i + 2]);
+    for (let y = 0; y < height; y++) {
+        for (let x = centerX; x < centerX + centerWidth; x++) {
+            const i = (y * width + x) * 4;
 
-        // 若任一顏色通道差異超過閾值，視為變化像素
-        if (rDiff > colorThreshold || gDiff > colorThreshold || bDiff > colorThreshold) {
-            diffCount++;
+            // 計算 RGB 差異（忽略 Alpha 通道）
+            const rDiff = Math.abs(pixels1[i] - pixels2[i]);
+            const gDiff = Math.abs(pixels1[i + 1] - pixels2[i + 1]);
+            const bDiff = Math.abs(pixels1[i + 2] - pixels2[i + 2]);
+
+            // 若任一顏色通道差異超過閾值，視為變化像素
+            if (rDiff > colorThreshold || gDiff > colorThreshold || bDiff > colorThreshold) {
+                diffCount++;
+            }
         }
     }
 
-    return (diffCount / totalPixels) * 100;
+    return (diffCount / centerPixels) * 100;
 }
 
 /**
@@ -82,13 +94,14 @@ function isSubtitleChanged(diffPercent, sensitivity = 8) {
  * @param {HTMLCanvasElement} canvas1 - 前一張截圖的 canvas
  * @param {HTMLCanvasElement} canvas2 - 當前截圖的 canvas
  * @param {number} sensitivity - 敏感度閾值
+ * @param {number} centerWidthPercent - 中央檢測區域寬度百分比
  * @returns {object} - { shouldCapture: boolean, diffPercent: number, reason: string }
  */
-function compareSubtitleRegions(canvas1, canvas2, sensitivity = 8) {
+function compareSubtitleRegions(canvas1, canvas2, sensitivity = 8, centerWidthPercent = 15) {
     const imgData1 = getSubtitleImageData(canvas1);
     const imgData2 = getSubtitleImageData(canvas2);
 
-    const diffPercent = calculatePixelDifference(imgData1, imgData2);
+    const diffPercent = calculatePixelDifference(imgData1, imgData2, 30, centerWidthPercent);
     const result = isSubtitleChanged(diffPercent, sensitivity);
 
     return {
@@ -100,13 +113,14 @@ function compareSubtitleRegions(canvas1, canvas2, sensitivity = 8) {
 
 /**
  * 快速比較兩張已有的 ImageData
- * @param {ImageData} imgData1 
- * @param {ImageData} imgData2 
- * @param {number} sensitivity 
+ * @param {ImageData} imgData1
+ * @param {ImageData} imgData2
+ * @param {number} sensitivity
+ * @param {number} centerWidthPercent - 中央檢測區域寬度百分比
  * @returns {object}
  */
-function quickCompare(imgData1, imgData2, sensitivity = 8) {
-    const diffPercent = calculatePixelDifference(imgData1, imgData2);
+function quickCompare(imgData1, imgData2, sensitivity = 8, centerWidthPercent = 15) {
+    const diffPercent = calculatePixelDifference(imgData1, imgData2, 30, centerWidthPercent);
     const result = isSubtitleChanged(diffPercent, sensitivity);
 
     return {
@@ -121,46 +135,71 @@ function quickCompare(imgData1, imgData2, sensitivity = 8) {
  * @param {ImageData} imgData - 圖像像素資料
  * @param {string} colorType - 顏色類型: 'white', 'yellow', 'any'
  * @param {number} minPixelPercent - 最小像素百分比閾值 (預設 0.5%)
- * @returns {object} - { hasText: boolean, textPixelPercent: number }
+ * @param {number} centerWidthPercent - 中央檢測區域寬度百分比 (預設 15，表示中間 15%)
+ * @returns {object} - { hasText: boolean, textPixelPercent: number, centerPixelPercent: number }
  */
-function hasSubtitleText(imgData, colorType = 'white', minPixelPercent = 0.5) {
+function hasSubtitleText(imgData, colorType = 'white', minPixelPercent = 0.5, centerWidthPercent = 15) {
+    const width = imgData.width;
+    const height = imgData.height;
     const pixels = imgData.data;
-    const totalPixels = pixels.length / 4;
+
+    // 計算中央區域的範圍
+    const centerWidth = Math.floor(width * (centerWidthPercent / 100));
+    const centerX = Math.floor((width - centerWidth) / 2);
+
     let textPixelCount = 0;
+    let centerTextPixelCount = 0;
+    const totalPixels = width * height;
+    const centerPixels = centerWidth * height;
 
-    for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i];
-        const g = pixels[i + 1];
-        const b = pixels[i + 2];
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            const r = pixels[i];
+            const g = pixels[i + 1];
+            const b = pixels[i + 2];
 
-        let isTextPixel = false;
+            let isTextPixel = false;
 
-        if (colorType === 'white') {
-            // 白色字幕：RGB 都 > 200
-            isTextPixel = (r > 200 && g > 200 && b > 200);
-        } else if (colorType === 'yellow') {
-            // 黃色字幕：R > 200, G > 180, B < 100
-            isTextPixel = (r > 200 && g > 180 && b < 100);
-        } else if (colorType === 'any') {
-            // 不過濾，總是視為有字幕
-            return { hasText: true, textPixelPercent: 100 };
-        }
+            if (colorType === 'white') {
+                // 白色字幕：RGB 都 > 200
+                isTextPixel = (r > 200 && g > 200 && b > 200);
+            } else if (colorType === 'yellow') {
+                // 黃色字幕：R > 200, G > 180, B < 100
+                isTextPixel = (r > 200 && g > 180 && b < 100);
+            } else if (colorType === 'any') {
+                // 不過濾，總是視為有字幕
+                return {
+                    hasText: true,
+                    textPixelPercent: 100,
+                    centerPixelPercent: 100
+                };
+            }
 
-        if (isTextPixel) {
-            textPixelCount++;
+            if (isTextPixel) {
+                textPixelCount++;
+                // 如果在中央區域內
+                if (x >= centerX && x < centerX + centerWidth) {
+                    centerTextPixelCount++;
+                }
+            }
         }
     }
 
     const textPixelPercent = (textPixelCount / totalPixels) * 100;
-    const hasText = textPixelPercent >= minPixelPercent;
+    const centerPixelPercent = (centerTextPixelCount / centerPixels) * 100;
+
+    // 優先使用中央區域的檢測結果
+    const hasText = centerPixelPercent >= minPixelPercent;
 
     if (!hasText) {
-        console.log(`⏭️ 無字幕偵測 (${colorType}): 僅 ${textPixelPercent.toFixed(2)}% 符合像素`);
+        console.log(`⏭️ 無字幕偵測 (${colorType}): 中央區域(${centerWidthPercent}%) 僅 ${centerPixelPercent.toFixed(2)}% 符合像素 (全區域: ${textPixelPercent.toFixed(2)}%)`);
     }
 
     return {
         hasText,
-        textPixelPercent
+        textPixelPercent,
+        centerPixelPercent
     };
 }
 

@@ -1,245 +1,254 @@
-# 🔧 除錯指南
+# 除錯指南 V2.0
 
-## 問題：停在「組合頁面... 8」沒有出現「開啟閱讀器」
+## 🔧 開發者工具使用
 
-### 可能的原因
+### 開啟開發者工具
+1. 按 `F12` 或 `Cmd+Option+I` (Mac)
+2. 切換到 Console 分頁
 
-1. **chrome.runtime.sendMessage 失敗**
-   - popup 關閉導致訊息接收器失效
-   - 訊息發送失敗但沒有回應
+### 不同頁面的 Console
 
-2. **chrome.storage.local.set 失敗**
-   - 資料太大超過限制
-   - 權限問題
+#### Side Panel
+1. 前往 `chrome://extensions/`
+2. 找到擴充功能
+3. 點擊「Service Worker」連結
+4. 開啟開發者工具
 
-3. **進度更新遺失**
-   - 100% 進度訊息沒有送達
-   - popup 沒有正確接收訊息
+#### Content Script (YouTube 頁面)
+1. 在 YouTube 頁面按 F12
+2. Console 會顯示 content.js 的日誌
 
-## 如何除錯
-
-### 步驟1: 開啟開發者工具
-
-#### 在YouTube頁面（content script）
-1. 在YouTube影片頁面按 `F12`
-2. 切換到 `Console` 標籤
-3. 點擊「開始製作電子書」
-4. 觀察 Console 輸出
-
-**應該看到的訊息：**
-```
-進度: 0% - 開始截圖...
-進度: 10% - 截圖中... 30/300
-...
-進度: 50% - 組合頁面中...
-進度: 52% - 組合頁面... 1
-進度: 54% - 組合頁面... 2
-...
-進度: 95% - 儲存資料中...
-資料已儲存
-進度: 100% - 完成！已截取 300 張圖片，共 60 頁
-```
-
-**如果卡住，檢查：**
-- 最後一行是什麼？
-- 有沒有錯誤訊息（紅色）？
-- 有沒有「資料已儲存」？
-
-#### 在擴充功能 Popup（popup script）
-1. 點擊擴充功能圖示（不要關閉）
-2. 在 popup 上按右鍵 → `檢查`
-3. 切換到 `Console` 標籤
-4. 點擊「開始製作電子書」
-5. 觀察 Console 輸出
-
-**應該看到的訊息：**
-```
-收到進度更新: 0% 開始截圖...
-收到進度更新: 10% 截圖中... 30/300
-...
-收到進度更新: 100% 完成！已截取 300 張圖片，共 60 頁
-製作完成！顯示開啟閱讀器按鈕
-```
-
-**如果沒看到 100% 訊息：**
-- popup 可能已關閉（訊息接收器失效）
-- 訊息發送失敗
-
-### 步驟2: 檢查常見問題
-
-#### 問題1: Popup 關閉導致訊息遺失
-**症狀：**
-- YouTube Console 有「進度: 100%」
-- Popup Console 沒有「收到進度更新: 100%」
-
-**解決方法：**
-保持 popup 開啟狀態，不要點擊其他地方
-
-**或者：使用背景頁面**
-1. 進入 `chrome://extensions/`
-2. 找到本擴充功能
-3. 點擊「檢查背景頁」（如果有）
-
-#### 問題2: 資料太大無法儲存
-**症狀：**
-- Console 顯示「儲存失敗: QuotaExceededError」
-- 沒有「資料已儲存」訊息
-
-**解決方法：**
-1. 減少截圖數量
-   - 增加截圖間隔（改成 5 秒）
-   - 使用較短的影片測試
-2. 清除舊資料
-   ```javascript
-   // 在 Console 執行
-   chrome.storage.local.clear()
-   ```
-
-#### 問題3: 進度卡在組合階段
-**症狀：**
-- 停在「組合頁面... 8」
-- 後續沒有「儲存資料中...」或「完成！」
-
-**檢查：**
-```javascript
-// 在 YouTube Console 執行
-console.log('截圖數量:', captureData.screenshots.length);
-console.log('頁面數量:', captureData.pages.length);
-```
-
-### 步驟3: 手動測試
-
-#### 測試訊息傳遞
-在 YouTube Console 執行：
-```javascript
-chrome.runtime.sendMessage({
-  action: 'updateProgress',
-  progress: 100,
-  message: '測試完成'
-}, (response) => {
-  console.log('回應:', response);
-  if (chrome.runtime.lastError) {
-    console.error('錯誤:', chrome.runtime.lastError);
-  }
-});
-```
-
-#### 測試資料儲存
-在 YouTube Console 執行：
-```javascript
-chrome.storage.local.set({ test: 'hello' }, () => {
-  console.log('儲存測試完成');
-  if (chrome.runtime.lastError) {
-    console.error('儲存失敗:', chrome.runtime.lastError);
-  }
-});
-```
-
-#### 檢查已儲存的資料
-在 YouTube Console 執行：
-```javascript
-chrome.storage.local.get('captureData', (result) => {
-  if (result.captureData) {
-    console.log('已儲存資料:');
-    console.log('- 影片標題:', result.captureData.videoTitle);
-    console.log('- 截圖數量:', result.captureData.screenshots.length);
-    console.log('- 頁面數量:', result.captureData.pages.length);
-  } else {
-    console.log('沒有儲存的資料');
-  }
-});
-```
-
-## 臨時解決方案
-
-### 方案1: 手動觸發「開啟閱讀器」按鈕
-
-如果資料已經製作完成，但按鈕沒顯示：
-
-1. 在 Popup Console 執行：
-```javascript
-document.getElementById('openViewer').style.display = 'block';
-```
-
-2. 或者直接在 YouTube 頁面 Console 執行：
-```javascript
-openViewer();
-```
-
-### 方案2: 檢查並修復資料
-
-在 YouTube Console 執行：
-```javascript
-chrome.storage.local.get('captureData', (result) => {
-  if (result.captureData) {
-    window.captureData = result.captureData;
-    console.log('資料已載入，可以開啟閱讀器');
-    openViewer();
-  }
-});
-```
-
-### 方案3: 重新載入擴充功能
-
-1. 進入 `chrome://extensions/`
-2. 找到「YouTube字幕電子書製作器」
-3. 點擊「重新載入」圖示（🔄）
-4. 重新整理 YouTube 頁面
-5. 再次嘗試
-
-## 已修復的問題
-
-### v0.2.1 修復（最新版）
-
-1. **加入錯誤處理**
-   - `updateProgress` 加入 try-catch
-   - `chrome.storage.local.set` 加入錯誤處理
-   - 所有訊息發送都有回應處理
-
-2. **加入除錯訊息**
-   - 所有進度都會輸出到 Console
-   - 儲存成功/失敗訊息
-   - Popup 收到進度的訊息
-
-3. **改進訊息機制**
-   - `sendResponse` 必定回應
-   - `return true` 保持通道開啟
-   - 進度 >= 100 (不只 === 100)
-
-4. **新增儲存階段**
-   - 95% - 儲存資料中...
-   - 100% - 完成！
-
-## 最佳實踐
-
-### 使用時
-1. ✅ 保持 popup 開啟（不要關閉或切換）
-2. ✅ 開啟 Console 觀察進度
-3. ✅ 測試前清除舊資料
-4. ✅ 從短影片開始測試
-
-### 測試時
-1. ✅ 使用 5 分鐘以內的影片
-2. ✅ 截圖間隔設定 3-5 秒
-3. ✅ 每頁行數設定 3-5 行
-4. ✅ 觀察 Console 是否有錯誤
-
-## 回報問題
-
-如果問題持續，請記錄：
-
-1. **YouTube Console 的最後幾行訊息**
-2. **Popup Console 的所有訊息**
-3. **影片長度**
-4. **設定參數**（截圖間隔、每頁行數）
-5. **Chrome 版本**
+#### Reader 頁面
+1. 在閱讀器視窗按 F12
+2. Console 會顯示 reader.js 的日誌
 
 ---
 
-**更新後請重新載入擴充功能！**
+## 🐛 常見問題診斷
 
-1. `chrome://extensions/`
-2. 找到本擴充功能
-3. 點擊「重新載入」🔄
-4. 重新整理 YouTube 頁面
-5. 再次測試
+### 問題 1: 側邊面板無法開啟
+
+**症狀**：點擊擴充功能圖示沒反應
+
+**檢查步驟**：
+1. 確認 Chrome 版本 ≥ 114
+2. 檢查 Service Worker 是否有錯誤
+3. 查看 `chrome://extensions/` 是否有紅色錯誤
+
+**解決方案**：
+```javascript
+// 在 Service Worker Console 檢查
+// 應該看到 "Side panel registered" 訊息
+```
+
+### 問題 2: 截圖全黑
+
+**症狀**：製作完成但截圖是黑色
+
+**檢查步驟**：
+1. 確認字幕區域高度設定正確
+2. 檢查影片是否有硬編碼字幕
+3. 開啟 Console 查看錯誤
+
+**解決方案**：
+- 調整「字幕區域高度」（嘗試 10%-25%）
+- 調整「底部邊界」
+
+### 問題 3: 無法存取 YouTube
+
+**症狀**：顯示「請在 YouTube 頁面使用」
+
+**檢查步驟**：
+1. 確認網址是 `https://www.youtube.com/watch?v=...`
+2. 確認擴充功能有權限存取 YouTube
+
+**解決方案**：
+1. 前往 `chrome://extensions/`
+2. 點擊擴充功能的「詳細資訊」
+3. 確認「網站存取權」包含 YouTube
+
+### 問題 4: 閱讀器無法開啟
+
+**症狀**：點擊開啟閱讀器沒反應
+
+**檢查步驟**：
+1. 檢查 Console 是否有錯誤
+2. 確認 Storage 中有資料
+
+**診斷指令**：
+```javascript
+// 在 YouTube 頁面 Console 執行
+chrome.storage.local.get(null, (data) => {
+  console.log('Storage 資料:', data);
+});
+```
+
+### 問題 5: 編輯後資料遺失
+
+**症狀**：編輯完成後重新開啟資料消失
+
+**檢查步驟**：
+1. 檢查 Storage 是否正確寫入
+2. 確認沒有覆蓋問題
+
+**診斷指令**：
+```javascript
+// 在 Reader Console 執行
+chrome.storage.local.get(['liveCapture'], (data) => {
+  console.log('Live Capture 資料:', data);
+});
+```
+
+---
+
+## 📊 日誌訊息說明
+
+### Side Panel 日誌
+```
+[sidepanel] 設定已載入
+[sidepanel] 開始製作...
+[sidepanel] 進度更新: 50%
+[sidepanel] 製作完成
+```
+
+### Content Script 日誌
+```
+[content] 收到 startCapture 訊息
+[content] 開始截圖: 0s
+[content] 截圖完成: 100 張
+[content] 儲存到 Storage
+```
+
+### Reader 日誌
+```
+[reader] 載入資料...
+[reader] 頁面數: 20
+[reader] 顯示第 1 頁
+[reader] 編輯已儲存
+```
+
+---
+
+## 🔍 Storage 檢查
+
+### 查看所有資料
+```javascript
+chrome.storage.local.get(null, (data) => {
+  console.log('所有 Storage 資料:');
+  Object.keys(data).forEach(key => {
+    const size = JSON.stringify(data[key]).length;
+    console.log(`  ${key}: ${(size/1024).toFixed(2)} KB`);
+  });
+});
+```
+
+### 查看特定段落
+```javascript
+// 列出所有段落
+chrome.storage.local.get(['savedSegments'], (data) => {
+  console.log('已儲存段落:', data.savedSegments);
+});
+
+// 查看特定段落資料
+chrome.storage.local.get(['segment_VIDEO_ID_TIMESTAMP'], (data) => {
+  console.log('段落資料:', data);
+});
+```
+
+### 清除資料（謹慎使用）
+```javascript
+// 清除所有資料
+chrome.storage.local.clear(() => {
+  console.log('已清除所有資料');
+});
+
+// 清除特定資料
+chrome.storage.local.remove(['key1', 'key2'], () => {
+  console.log('已清除');
+});
+```
+
+---
+
+## ⚠️ 錯誤訊息對照
+
+| 錯誤訊息 | 原因 | 解決方案 |
+|----------|------|----------|
+| `找不到影片元素` | 頁面未載入或不是影片頁 | 等待頁面載入完成 |
+| `請在 YouTube 頁面使用` | 不在 YouTube 域名 | 前往 YouTube |
+| `Storage 超限` | 資料量過大 | 刪除舊資料 |
+| `無法載入資料` | Storage 讀取失敗 | 重新載入擴充功能 |
+| `影片載入失敗` | 影片跳轉失敗 | 檢查網路連線 |
+
+---
+
+## 🛠️ 進階除錯
+
+### 監聽 Storage 變化
+```javascript
+chrome.storage.onChanged.addListener((changes, area) => {
+  console.log('Storage 變化:', area);
+  for (let key in changes) {
+    console.log(`  ${key}:`, changes[key]);
+  }
+});
+```
+
+### 檢查訊息傳遞
+```javascript
+// 在 Content Script Console
+chrome.runtime.onMessage.addListener((msg, sender, respond) => {
+  console.log('收到訊息:', msg);
+  console.log('來源:', sender);
+});
+```
+
+### 效能監控
+```javascript
+// 計算截圖時間
+console.time('截圖');
+// ... 截圖操作
+console.timeEnd('截圖');
+```
+
+---
+
+## 📝 回報問題
+
+回報問題時請提供：
+1. Chrome 版本
+2. 擴充功能版本 (2.0.0)
+3. 錯誤訊息（完整）
+4. 重現步驟
+5. 影片網址（如可分享）
+
+### 收集日誌
+1. 開啟開發者工具
+2. 右鍵 Console
+3. 選擇「Save as...」
+4. 附上日誌檔案
+
+---
+
+## 🔄 重設擴充功能
+
+如果問題持續：
+
+1. **重新載入擴充功能**
+   - 前往 `chrome://extensions/`
+   - 點擊重新載入按鈕
+
+2. **清除並重新安裝**
+   - 移除擴充功能
+   - 重新載入
+
+3. **完全重設**
+   ```javascript
+   // 清除所有擴充功能資料
+   chrome.storage.local.clear();
+   // 然後重新載入擴充功能
+   ```
+
+---
+
+**需要更多幫助？請查看 [TEST_CHECKLIST.md](TEST_CHECKLIST.md) 進行系統性測試。**

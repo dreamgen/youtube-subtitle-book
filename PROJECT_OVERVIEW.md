@@ -1,11 +1,13 @@
-# 專案總覽
+# 專案總覽 V2.0
 
 ## 📌 專案目標
 
-將YouTube影片中的硬編碼字幕轉換成可翻頁閱讀的電子書格式，讓使用者能夠：
+將 YouTube 影片中的硬編碼字幕轉換成可翻頁閱讀的電子書格式，讓使用者能夠：
 - 一次看到多行連續字幕
 - 快速閱讀文字內容
 - 不需要盯著影片下方的單行字幕區域
+- 儲存並管理多個字幕段落
+- 導出為 PDF 或有聲書格式
 
 ## 🎯 核心概念
 
@@ -17,66 +19,107 @@
 我們的方法：
 ```
 [截取N秒字幕] → 組合成一頁 → 全螢幕顯示 → 翻頁+播放音訊
+              ↓
+         儲存到書庫 → PDF/有聲書導出
 ```
 
-## 📁 檔案結構
+## 🏗️ V2.0 技術架構
+
+### 1. Manifest V3 架構
 
 ```
-youtube-subtitle-book/
-│
-├── manifest.json           # Chrome擴充功能配置
-│   └── 定義權限、版本、content scripts等
-│
-├── popup.html             # 控制面板UI
-│   └── 提供參數設定介面
-│
-├── popup.js               # 控制面板邏輯
-│   └── 處理使用者輸入，發送訊息到content script
-│
-├── content.js             # 🔥 核心功能 (截圖端)
-│   ├── startCapture()      → 截圖主流程
-│   ├── createPages()       → 組合頁面
-│   └── openViewer()        → 開啟閱讀器分頁
-│
-├── reader.html            # 📖 閱讀器介面 (獨立分頁)
-│   └── 顯示電子書內容，獨立於YouTube分頁
-│
-├── reader.js              # 📖 閱讀器邏輯
-│   ├── 渲染頁面與截圖
-│   ├── 處理播放控制 (靜音/倍速)
-│   └── 處理編輯功能 (插入/刪除/時間調整)
-│
-├── content.css            # 樣式表
-│   └── 共用樣式與預覽視窗樣式
-│
-├── icon*.png              # 擴充功能圖示
-│
-├── create-icons.html      # 圖示產生工具
-│
-├── README.md              # 完整說明文件
-├── QUICK_START.md         # 快速開始指南
-└── TEST_CHECKLIST.md      # 測試檢查清單
+┌─────────────────────────────────────────────────────────────┐
+│                      Chrome Extension                        │
+├─────────────────────────────────────────────────────────────┤
+│  manifest.json (V3)                                         │
+│  ├── permissions: storage, tabs, sidePanel, unlimitedStorage│
+│  ├── background: service_worker (background.js)            │
+│  └── side_panel: default_path (sidepanel.html)              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 🔧 技術架構
+### 2. Side Panel 架構
 
-### 1. 雙視窗協作機制 (Dual-Tab Architecture)
+```
+┌──────────────────┐     ┌──────────────────┐
+│   Side Panel     │     │   YouTube Tab    │
+│  (sidepanel.js)  │◄───►│   (content.js)   │
+├──────────────────┤     ├──────────────────┤
+│ • 參數設定       │     │ • 影片控制       │
+│ • 開始/停止製作   │     │ • 截圖擷取       │
+│ • 進度顯示       │     │ • 頁面組合       │
+│ • 書庫管理       │     │ • 預覽顯示       │
+└──────────────────┘     └──────────────────┘
+         │                        │
+         └────────┬───────────────┘
+                  ▼
+         ┌──────────────────┐
+         │  Chrome Storage   │
+         │   (local)         │
+         ├──────────────────┤
+         │ • captureData     │
+         │ • savedSegments   │
+         │ • liveCapture     │
+         │ • settings        │
+         └──────────────────┘
+```
 
-v0.3.0 引入了雙視窗架構，解決了截圖與閱讀的互斥問題：
+### 3. 雙視窗協作機制 (Dual-Tab Architecture)
 
-1.  **Capture Tab (content.js)**:
-    - 駐留在 YouTube 影片頁面
-    - 負責控制 `<video>` 元素（跳轉、靜音、加速）
-    - 使用 DOM/Canvas 截取畫面
-    - 將資料寫入 `chrome.storage.local`
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Capture Flow                              │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─────────────┐         ┌─────────────┐                    │
+│  │ YouTube Tab │         │ Reader Tab  │                    │
+│  │ (Capture)   │         │ (Display)   │                    │
+│  └──────┬──────┘         └──────┬──────┘                    │
+│         │                       │                            │
+│         │   截圖資料            │   顯示/編輯                │
+│         ▼                       ▼                            │
+│  ┌──────────────────────────────────────────┐               │
+│  │           Chrome Storage                  │               │
+│  │  • liveCapture: 即時截圖資料              │               │
+│  │  • segment_*: 已儲存段落                  │               │
+│  └──────────────────────────────────────────┘               │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
 
-2.  **Reader Tab (reader.js)**:
-    - 獨立的 Extension Page (`chrome-extension://.../reader.html`)
-    - 從 `chrome.storage.local` 讀取資料並渲染
-    - 負責播放音訊（如果需要同步）或僅顯示內容
-    - **編輯權限**：所有的編輯（插入、刪除、修改）發生在此，並即時寫回 Storage
+### 4. 模組分離
 
-### 2. 截圖機制（content.js）
+```
+youtube-subtitle-book-v2/
+│
+├── 🎛️ 控制層
+│   ├── background.js        # Service Worker
+│   ├── sidepanel.js         # 側邊面板邏輯
+│   └── sidepanel.html       # 側邊面板 UI
+│
+├── 📷 核心層
+│   ├── content.js           # 截圖、組合核心
+│   └── subtitleDetection.js # 智慧偵測模組
+│
+├── 📖 顯示層
+│   ├── reader.js            # 閱讀器邏輯
+│   ├── reader.html          # 閱讀器 UI
+│   └── reader.css           # 閱讀器樣式
+│
+├── 📚 管理層
+│   ├── library.js           # 書庫管理
+│   ├── library.html         # 書庫 UI
+│   ├── all-libraries.js     # 全部書庫
+│   └── all-libraries.html   # 全部書庫 UI
+│
+└── 🎨 樣式層
+    ├── theme.css            # 共用主題
+    └── content.css          # 影片頁樣式
+```
+
+## 🔧 核心功能實現
+
+### 截圖機制 (content.js)
 
 ```javascript
 核心流程：
@@ -85,63 +128,123 @@ for (每個時間點) {
   2. video.playbackRate = 2.0 (加速)
   3. video.muted = true (靜音)
   4. 等待影片載入該時間點
-  5. 使用Canvas API截取字幕區域
-  6. 將截圖轉為Base64儲存
+  5. 使用 Canvas API 截取字幕區域
+  6. 將截圖轉為 Base64 儲存
+  7. 寫入 chrome.storage.local
 }
 ```
 
-**關鍵技術**：
-- `HTMLVideoElement.currentTime` - 影片時間控制
-- `Canvas.drawImage()` - 截取影片畫面特定區域
-- `canvas.toDataURL()` - 轉換為PNG格式
+### 智慧偵測 (subtitleDetection.js)
 
-### 3. 資料結構
+```javascript
+智慧擷取流程：
+while (播放中) {
+  1. 每 200ms 擷取中央檢測區域
+  2. 對比前後兩張圖片像素差異
+  3. 如果差異 > 靈敏度閾值
+     → 判定字幕變化，截圖
+  4. 過濾非字幕顏色的像素
+}
+```
+
+### 書庫管理 (library.js)
+
+```javascript
+功能列表：
+• loadSegments()      - 載入所有段落
+• filterAndRender()   - 搜尋過濾
+• sortSegments()      - 排序
+• batchDelete()       - 批次刪除
+• batchExportPdf()    - PDF 合併導出
+• batchExportHtml()   - 有聲書導出
+• exportAllSegments() - 資料備份
+• importSegments()    - 資料還原
+```
+
+## 📊 資料結構
+
+### captureData（截圖資料）
 
 ```javascript
 captureData = {
   videoTitle: "影片標題",
   videoDuration: 600,  // 秒
+  linesPerPage: 5,
   screenshots: [
     { 
-      id: "timestamp_random", // 唯一ID (供編輯使用)
+      id: "timestamp_random", // 唯一 ID
       time: 0, 
-      imageData: "data:image/png;base64,..." 
+      imageData: "data:image/png;base64,...",
+      upperImageData: "..." // 上方字幕（可選）
     },
     ...
   ],
+  pages: [
+    {
+      pageNumber: 1,
+      startTime: 0,
+      endTime: 10,
+      screenshots: [...]
+    },
+    ...
+  ]
+}
+```
+
+### savedSegments（書庫索引）
+
+```javascript
+savedSegments = [
+  {
+    key: "video_timestamp",
+    videoId: "xxxxxxxxxxx",
+    videoTitle: "影片標題",
+    savedAt: "2026-01-23T12:00:00Z",
+    pageCount: 20,
+    startTime: 0,
+    endTime: 120
+  },
+  ...
+]
+```
+
+### segment_*（段落完整資料）
+
+```javascript
+// chrome.storage.local.get(['segment_video_timestamp'])
+{
+  videoTitle: "影片標題",
+  screenshots: [...],
   pages: [...]
 }
 ```
 
-### 4. 閱讀器（reader.js）
+## 🎨 UI/UX 設計原則
 
-動態建立全螢幕介面：
-```javascript
-- 獨立 HTML 結構
-- 垂直排列多行字幕截圖
-- 浮動工具列 (播放/暫停/靜音/倍速)
-- 每一行截圖附帶編輯按鈕 (插入/刪除/時間)
-- 資料變更時自動儲存
-```
-
-## 🎨 UI/UX設計原則
-
-### Popup介面
-- **簡潔**：只顯示必要參數
-- **清晰**：每個選項都有說明
-- **回饋**：進度條和狀態訊息
+### Side Panel 介面
+- **簡潔**：基本設定直接顯示，進階設定摺疊
+- **清晰**：滑桿即時顯示數值
+- **回饋**：Toast 通知操作結果
+- **固定**：底部按鈕始終可見
 
 ### 閱讀器介面
 - **專注**：深色背景減少干擾
 - **舒適**：適當間距和字體大小
-- **直覺**：明顯的導航按鈕
+- **直覺**：明顯的導航與控制按鈕
+- **靈活**：完整編輯功能
+
+### 書庫介面
+- **統一**：列表式顯示所有段落
+- **效率**：批次選取與操作
+- **直觀**：右鍵或按鈕操作
 
 ## 💡 創新點
 
-1. **無需OCR**：直接截圖，避免文字辨識的複雜性和不準確性
-2. **音訊同步**：每一頁都能播放對應的影片音訊
-3. **彈性配置**：可調整截圖間隔、每頁行數等參數
-4. **全螢幕閱讀**：類似電子書的閱讀體驗
+1. **Side Panel**：利用 Chrome 原生側邊面板，操作空間更大
+2. **智慧偵測**：不依賴固定間隔，偵測字幕變化時才截圖
+3. **書庫系統**：統一管理所有製作的字幕電子書
+4. **多格式導出**：PDF、HTML 有聲書、JSON 備份
+5. **即時預覽**：製作過程中可即時閱讀已完成頁面
 
 ## ⚡ 效能考量
 
@@ -152,118 +255,52 @@ captureData = {
 30分鐘影片（間隔2秒）= 900張 ≈ 72MB
 ```
 
+### 儲存優化
+- 使用 `unlimitedStorage` 權限
+- 大型資料分片儲存
+- 解決 64MB 訊息限制
+
 ### 處理時間
 ```
 截圖速度 ≈ 1-2張/秒（取決於影片載入速度）
+智慧模式可能更快（跳過無變化區間）
 10分鐘影片 ≈ 5-10分鐘處理時間
 ```
 
-### 優化策略
-- 使用較大的截圖間隔（減少截圖數量）
-- 調整Canvas尺寸（減少單張檔案大小）
-- 未來可加入字幕去重（跳過重複內容）
-
 ## 🚀 未來擴展方向
 
-### 階段2：智慧功能
-- [ ] 字幕變化偵測（智慧分頁）
-- [ ] 去重演算法（跳過相同字幕）
-- [ ] OCR輔助（提取文字供搜尋）
-
-### 階段3：匯出功能
-- [ ] PDF匯出
-- [ ] 純文字匯出（OCR後）
-- [ ] 影片片段下載
-
-### 階段4：閱讀體驗
-- [ ] 書籤系統
+### 近期（v2.1）
+- [ ] 鍵盤快捷鍵支援
+- [ ] 字幕去重功能
 - [ ] 閱讀進度記憶
-- [ ] 筆記功能
-- [ ] 字體大小調整
 
-### 階段5：分享功能
-- [ ] 匯出成獨立HTML檔案
-- [ ] 雲端儲存整合
-- [ ] 多裝置同步
+### 中期（v2.x）
+- [ ] OCR 文字提取
+- [ ] 搜尋功能
+- [ ] 書籤系統
+
+### 長期（v3.0）
+- [ ] 雲端同步
+- [ ] 多語言介面
+- [ ] 影片片段下載
 
 ## 🔍 已知限制
 
 1. **字幕類型限制**
    - ✅ 硬編碼字幕（burned-in subtitles）
-   - ❌ YouTube CC字幕（需要另外處理）
+   - ❌ YouTube CC 字幕
 
 2. **效能限制**
-   - 長影片需要較長處理時間
-   - 大量截圖佔用記憶體
+   - 長影片處理時間較長
+   - 大量截圖佔用儲存空間
 
 3. **相容性**
-   - 目前僅支援Chrome瀏覽器
-   - 需要Manifest V3支援
+   - Chrome 114+ （Side Panel API）
+   - Manifest V3 支援
 
 4. **使用限制**
    - 需手動調整字幕區域位置
-   - 無法自動偵測字幕出現位置
-
-## 🧪 測試策略
-
-### 單元測試（未來）
-- 截圖功能測試
-- 頁面組合邏輯測試
-- 時間計算準確性測試
-
-### 整合測試
-- 完整流程測試（見TEST_CHECKLIST.md）
-- 不同影片類型測試
-- 邊界情況測試
-
-### 使用者測試
-- 不同使用情境
-- 易用性測試
-- 效能測試
-
-## 📊 成功指標
-
-原型驗證成功的標準：
-- ✅ 能夠成功截取字幕區域
-- ✅ 組合成可閱讀的頁面
-- ✅ 全螢幕閱讀器正常運作
-- ✅ 音訊同步播放功能正常
-- ✅ 處理時間在可接受範圍內
-
-## 🤝 貢獻指南
-
-如果要擴展此專案：
-
-1. **Fork專案**
-2. **建立功能分支**：`git checkout -b feature/新功能`
-3. **提交變更**：`git commit -m "新增：XXX功能"`
-4. **推送分支**：`git push origin feature/新功能`
-5. **建立Pull Request**
-
-## 📝 版本歷史
-
-### v0.1.0（當前版本）- 原型
-- ✅ 基本截圖功能
-- ✅ 頁面組合功能
-- ✅ 全螢幕閱讀器
-- ✅ 音訊同步播放
-
-### v0.2.0（計劃中）
-- [ ] 字幕去重
-- [ ] 智慧分頁
-- [ ] 效能優化
-
-### v1.0.0（未來）
-- [ ] 完整的錯誤處理
-- [ ] 使用者設定持久化
-- [ ] 多語言支援
-
-## 📞 支援
-
-遇到問題？
-1. 查看README.md的疑難排解章節
-2. 檢查TEST_CHECKLIST.md確認功能正常
-3. 開啟開發者工具（F12）查看錯誤訊息
+   - 部分影片字幕位置不同
 
 ## 📄 授權
 

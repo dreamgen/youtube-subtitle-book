@@ -1,4 +1,25 @@
 // Side Panel - Logic for UI Modernization
+
+// 🆕 Open Library Manager
+async function openLibraryManager() {
+    const tab = await getActiveYouTubeTab();
+    const videoId = getVideoIdFromUrl(tab?.url);
+
+    if (!videoId) {
+        return showToast('請在 YouTube 頁面使用', 'error');
+    }
+
+    // Open Library Manager in a new window
+    chrome.windows.create({
+        url: chrome.runtime.getURL(`library.html?videoId=${videoId}`),
+        type: 'popup',
+        width: 600,
+        height: 700,
+        left: 200,
+        top: 50
+    });
+}
+
 const DEFAULT_SETTINGS = {
     startTimeOption: 'current',
     captureMode: 'interval',
@@ -7,6 +28,8 @@ const DEFAULT_SETTINGS = {
     sensitivity: 30,
     subtitleColor: 'white',
     minPixelPercent: 0.5,
+    centerWidthPercent: 15,
+    autoDetectUpperSubtitle: true,
     linesPerPage: 5,
     totalPages: 'all',
     subtitleHeight: 15,
@@ -52,16 +75,23 @@ async function loadSettings() {
 
     // Apply to UI
     ['startTimeOption', 'captureMode', 'captureInterval', 'checkInterval', 'sensitivity',
-        'subtitleColor', 'minPixelPercent', 'linesPerPage', 'totalPages', 'subtitleHeight', 'bottomMargin']
+        'subtitleColor', 'minPixelPercent', 'centerWidthPercent', 'linesPerPage', 'totalPages', 'subtitleHeight', 'bottomMargin']
         .forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = settings[id];
         });
 
+    // Apply checkbox
+    const autoDetectCheckbox = document.getElementById('autoDetectUpperSubtitle');
+    if (autoDetectCheckbox) {
+        autoDetectCheckbox.checked = settings.autoDetectUpperSubtitle !== false;
+    }
+
     // Update displays
     document.getElementById('intervalValue').textContent = parseFloat(settings.captureInterval).toFixed(1) + ' 秒';
     document.getElementById('sensitivityValue').textContent = settings.sensitivity + '%';
     document.getElementById('minPixelValue').textContent = settings.minPixelPercent + '%';
+    document.getElementById('centerWidthValue').textContent = settings.centerWidthPercent + '%';
 
     updateCaptureMode(settings.captureMode);
 }
@@ -72,11 +102,17 @@ async function saveSettings() {
 
     const settings = {};
     ['startTimeOption', 'captureMode', 'captureInterval', 'checkInterval', 'sensitivity',
-        'subtitleColor', 'minPixelPercent', 'linesPerPage', 'totalPages', 'subtitleHeight', 'bottomMargin']
+        'subtitleColor', 'minPixelPercent', 'centerWidthPercent', 'linesPerPage', 'totalPages', 'subtitleHeight', 'bottomMargin']
         .forEach(id => {
             const el = document.getElementById(id);
             if (el) settings[id] = (el.type === 'number' || el.type === 'range') ? parseFloat(el.value) : el.value;
         });
+
+    // Save checkbox
+    const autoDetectCheckbox = document.getElementById('autoDetectUpperSubtitle');
+    if (autoDetectCheckbox) {
+        settings.autoDetectUpperSubtitle = autoDetectCheckbox.checked;
+    }
 
     const saveData = { globalSettings: settings };
     if (videoId) {
@@ -87,17 +123,34 @@ async function saveSettings() {
 
 // --- Event Listeners ---
 
+// Slider progress fill helper
+function updateSliderProgress(slider) {
+    const value = slider.value;
+    const min = slider.min || 0;
+    const max = slider.max || 100;
+    const percentage = ((value - min) / (max - min)) * 100;
+    slider.style.setProperty('--range-progress', percentage + '%');
+}
+
 // Sliders
 document.getElementById('captureInterval').addEventListener('input', (e) => {
     document.getElementById('intervalValue').textContent = parseFloat(e.target.value).toFixed(1) + ' 秒';
+    updateSliderProgress(e.target);
     saveSettings();
 });
 document.getElementById('sensitivity').addEventListener('input', (e) => {
     document.getElementById('sensitivityValue').textContent = e.target.value + '%';
+    updateSliderProgress(e.target);
     saveSettings();
 });
 document.getElementById('minPixelPercent').addEventListener('input', (e) => {
     document.getElementById('minPixelValue').textContent = e.target.value + '%';
+    updateSliderProgress(e.target);
+    saveSettings();
+});
+document.getElementById('centerWidthPercent').addEventListener('input', (e) => {
+    document.getElementById('centerWidthValue').textContent = e.target.value + '%';
+    updateSliderProgress(e.target);
     saveSettings();
 });
 
@@ -106,6 +159,9 @@ document.getElementById('minPixelPercent').addEventListener('input', (e) => {
     'totalPages', 'subtitleHeight', 'bottomMargin'].forEach(id => {
         document.getElementById(id).addEventListener('change', saveSettings);
     });
+
+// Checkbox Listener
+document.getElementById('autoDetectUpperSubtitle')?.addEventListener('change', saveSettings);
 
 // Capture Mode Toggle
 function updateCaptureMode(mode) {
@@ -161,11 +217,15 @@ document.getElementById('startCapture').addEventListener('click', async () => {
     // Collect Config
     const config = {};
     ['startTimeOption', 'captureMode', 'captureInterval', 'checkInterval', 'sensitivity',
-        'subtitleColor', 'minPixelPercent', 'linesPerPage', 'totalPages', 'subtitleHeight', 'bottomMargin']
+        'subtitleColor', 'minPixelPercent', 'centerWidthPercent', 'linesPerPage', 'totalPages', 'subtitleHeight', 'bottomMargin']
         .forEach(id => {
             const el = document.getElementById(id);
             config[id] = (el.type === 'number' || el.type === 'range') ? parseFloat(el.value) : el.value;
         });
+
+    // Add checkbox config
+    const autoDetectCheckbox = document.getElementById('autoDetectUpperSubtitle');
+    config.autoDetectUpperSubtitle = autoDetectCheckbox ? autoDetectCheckbox.checked : true;
 
     const action = config.captureMode === 'smart' ? 'startSmartCapture' : 'startCapture';
     chrome.tabs.sendMessage(tab.id, { action, config }, (response) => {
@@ -196,16 +256,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (status) status.textContent = message.message;
         if (percentageEl) percentageEl.textContent = Math.floor(message.progress) + '%';
 
+        // 顯示即時閱讀按鈕（製作進行中且有進度）
+        const liveBtn = document.getElementById('liveReaderInCapture');
+        if (message.progress > 0 && message.progress < 100 && liveBtn) {
+            liveBtn.classList.remove('hidden');
+        }
+
         if (message.progress >= 100) {
+            // 製作完成
+            document.getElementById('statusTitle').textContent = '✅ 製作完成！';
             document.getElementById('openViewer').classList.remove('hidden');
-            // document.getElementById('startCapture').classList.add('hidden');
             document.getElementById('startCapture').textContent = '再次製作';
             document.getElementById('startCapture').disabled = false;
 
-            // Re-enable UI after a moment or keep showing result?
-            // Proposal says: "Complete: Show 'Open Reader' card". 
-            // For now, let's keep the overlay but show the Open Viewer button prominently.
+            // 隱藏停止按鈕和即時閱讀按鈕，顯示返回按鈕
             document.getElementById('stopCapture').classList.add('hidden');
+            if (liveBtn) liveBtn.classList.add('hidden');
+            document.getElementById('returnToMain').classList.remove('hidden');
+
+            // 重新載入書庫列表
+            loadSavedSegments();
         }
         sendResponse({ received: true });
     } else if (message.action === 'liveReadyPages') {
@@ -221,25 +291,42 @@ document.getElementById('openViewer').addEventListener('click', async () => {
     if (tab) chrome.tabs.sendMessage(tab.id, { action: 'openViewer' });
 });
 
-// Live Reader
-document.getElementById('liveReader').addEventListener('click', async () => {
+// Live Reader (in capture area)
+async function openLiveReader() {
     const tab = await getActiveYouTubeTab();
     if (!tab) return showToast('找不到 YouTube 分頁', 'error');
 
     const videoId = getVideoIdFromUrl(tab.url);
     if (!videoId) return showToast('無法取得影片 ID', 'error');
 
-    // Open Background Op Tab
-    const operationTab = await chrome.tabs.create({ url: `https://www.youtube.com/watch?v=${videoId}`, active: false });
-    await chrome.storage.local.set({ youtubeOperationTabId: operationTab.id, youtubeVideoId: videoId });
+    // 不再預先開啟背景操作分頁，改為在需要時才開啟
+    // 只儲存 videoId，讓 reader.js 在需要時自行建立分頁
+    await chrome.storage.local.set({ youtubeVideoId: videoId });
 
     // Open Reader Window
+    // Calculate window dimensions (80% of screen width, 90% of screen height)
+    const screenWidth = window.screen.availWidth;
+    const screenHeight = window.screen.availHeight;
+    const windowWidth = Math.floor(screenWidth * 0.8);
+    const windowHeight = Math.floor(screenHeight * 0.9);
+    const left = Math.floor((screenWidth - windowWidth) / 2);
+    const top = Math.floor((screenHeight - windowHeight) / 2);
+
     chrome.windows.create({
         url: chrome.runtime.getURL('reader.html'),
         type: 'popup',
-        width: 450, height: 750, left: 100, top: 50
+        width: windowWidth,
+        height: windowHeight,
+        left: left,
+        top: top
     });
-});
+}
+
+// Bind live reader button in capture area
+const liveReaderBtn = document.getElementById('liveReaderInCapture');
+if (liveReaderBtn) {
+    liveReaderBtn.addEventListener('click', openLiveReader);
+}
 
 // --- Library / Saved Segments ---
 async function loadSavedSegments() {
@@ -253,15 +340,31 @@ async function loadSavedSegments() {
     }
 
     const result = await chrome.storage.local.get(['savedSegments']);
-    const segments = (result.savedSegments || []).filter(s => s.videoId === videoId);
+    let segments = (result.savedSegments || []).filter(s => s.videoId === videoId);
+
+    // 依照建立時間排序（最新的在前）
+    segments.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    // 🆕 只顯示最新 10 筆
+    const displaySegments = segments.slice(0, 10);
+    const totalCount = segments.length;
 
     select.innerHTML = segments.length ? '<option value="">選擇要載入的段落...</option>' : '<option value="">（尚無儲存段落）</option>';
-    segments.forEach(seg => {
+    displaySegments.forEach(seg => {
         const opt = document.createElement('option');
         opt.value = seg.key;
-        opt.textContent = `${formatTime(seg.startTime)} - ${formatTime(seg.endTime)} (${seg.pageCount}頁)`;
+        const dateStr = seg.createdAt ? new Date(seg.createdAt).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }) : '';
+        opt.textContent = `${dateStr} ${formatTime(seg.startTime)}-${formatTime(seg.endTime)} (${seg.pageCount}頁)`;
         select.appendChild(opt);
     });
+
+    // 如果有超過 10 筆，顯示提示
+    if (totalCount > 10) {
+        const opt = document.createElement('option');
+        opt.disabled = true;
+        opt.textContent = `... 還有 ${totalCount - 10} 個段落（開啟書庫管理檢視）`;
+        select.appendChild(opt);
+    }
 }
 
 // Load Saved
@@ -294,66 +397,7 @@ document.getElementById('deleteResult').addEventListener('click', async () => {
     await chrome.storage.local.remove([`segment_${key}`]);
     await chrome.storage.local.set({ savedSegments: segments });
     await loadSavedSegments();
-    await loadSavedSegments();
     showToast('已刪除');
-});
-
-// Export PDF
-document.getElementById('exportPdf').addEventListener('click', async () => {
-    const key = document.getElementById('savedResults').value;
-    if (!key) return showToast('請選擇段落', 'error');
-
-    showToast('正在產生 PDF...');
-    const btn = document.getElementById('exportPdf');
-    btn.disabled = true;
-
-    try {
-        const result = await chrome.storage.local.get([`segment_${key}`]);
-        const data = result[`segment_${key}`];
-        if (!data) throw new Error('找不到資料');
-
-        const pdf = new jspdf.jsPDF();
-        let pageHeight = pdf.internal.pageSize.getHeight();
-        let pageWidth = pdf.internal.pageSize.getWidth();
-        let y = 10;
-
-        // Title
-        pdf.setFontSize(16);
-        pdf.text(data.videoTitle || 'Subtitle Book', 10, y);
-        y += 10;
-
-        // Content
-        data.pages.forEach((page, pIdx) => {
-            if (pIdx > 0) {
-                pdf.addPage();
-                y = 10;
-            }
-
-            page.screenshots.forEach((shot) => {
-                if (y > pageHeight - 40) {
-                    pdf.addPage();
-                    y = 10;
-                }
-
-                const imgData = shot.imageData;
-                const imgProps = pdf.getImageProperties(imgData);
-                const imgHeight = (pageWidth - 20) * (imgProps.height / imgProps.width);
-
-                pdf.addImage(imgData, 'JPEG', 10, y, pageWidth - 20, imgHeight);
-                pdf.setFontSize(10);
-                pdf.text(formatTime(shot.time), 10, y + imgHeight + 5);
-
-                y += imgHeight + 15;
-            });
-        });
-
-        pdf.save(`${data.videoTitle || 'subtitle_book'}.pdf`);
-        showToast('PDF 下載完成');
-    } catch (e) {
-        showToast('匯出失敗: ' + e.message, 'error');
-    } finally {
-        btn.disabled = false;
-    }
 });
 
 // --- Dialogs & Toasts ---
@@ -393,15 +437,82 @@ function resetUIState() {
     document.getElementById('statusOverlay').classList.remove('show');
     document.getElementById('startCapture').disabled = false;
     document.getElementById('startCapture').textContent = '🚀 開始製作';
+    document.getElementById('statusTitle').textContent = '製作中...';
+    document.getElementById('stopCapture').classList.remove('hidden');
+    document.getElementById('liveReaderInCapture').classList.add('hidden');
+    document.getElementById('returnToMain').classList.add('hidden');
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('statusPercentage').textContent = '0%';
+    document.getElementById('status').textContent = '初始化...';
 }
+
+// --- Check Live Capture (Restore state) ---
+async function checkLiveCapture() {
+    const result = await chrome.storage.local.get(['liveCapture']);
+    const data = result.liveCapture;
+
+    if (data && data.pages && data.pages.length >= 2) {
+        if (data.isCapturing) {
+            showToast(`偵測到正在進行的擷取 (${data.pages.length}頁)`);
+        }
+    }
+}
+
+// --- Storage Change Listener ---
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.liveCapture) {
+        const data = changes.liveCapture.newValue;
+        if (data && data.pages && data.pages.length >= 2 && data.isCapturing) {
+            // Live capture in progress, could highlight Live Reader button
+        }
+    }
+});
 
 // --- Init ---
 document.addEventListener('DOMContentLoaded', async () => {
     await loadSettings();
     await loadSavedSegments();
+    await checkLiveCapture();
+
+    // Initialize slider progress on load
+    document.querySelectorAll('input[type="range"]').forEach(slider => {
+        updateSliderProgress(slider);
+    });
 
     // Accordion Toggle
     document.getElementById('advancedAccordionHeader').addEventListener('click', () => {
         document.getElementById('advancedAccordion').classList.toggle('open');
+    });
+
+    // Return to Main Button
+    document.getElementById('returnToMain').addEventListener('click', () => {
+        resetUIState();
+    });
+
+    // Open Library Manager Button
+    const openLibraryBtn = document.getElementById('openLibrary');
+    if (openLibraryBtn) {
+        openLibraryBtn.addEventListener('click', openLibraryManager);
+    }
+
+    // Debug Storage Listener
+    document.getElementById('debugStorage').addEventListener('click', async () => {
+        console.log('🐞 Debug Storage Clicked');
+        const all = await chrome.storage.local.get(null);
+        console.log('📦 All Storage Data:', all);
+        console.log('📂 Saved Segments:', all.savedSegments);
+        console.log('🔑 Segment Keys:', Object.keys(all).filter(k => k.startsWith('segment_')));
+
+        // Specific Key Analysis
+        if (all.savedSegments && all.savedSegments.length > 0) {
+            all.savedSegments.forEach(seg => {
+                const hasData = !!all[`segment_${seg.key}`];
+                console.log(`Segment: ${seg.key} | Has Data: ${hasData} | Video: ${seg.videoId}`);
+            });
+        } else {
+            console.log('⚠️ No saved segments found in index.');
+        }
+
+        showToast('Storage dumped to Console');
     });
 });
